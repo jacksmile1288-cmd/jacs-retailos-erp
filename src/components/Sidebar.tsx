@@ -4,6 +4,7 @@ import { ActiveNavModule } from '../types';
 import { getReactiveNeonGlowStyle } from '../utils/neonGlow';
 import { JacSLogo } from './common/JacSLogo';
 import { AboutSystemModal } from './common/AboutSystemModal';
+import { QuickAuthModal } from './auth/QuickAuthModal';
 import {
   Home,
   LayoutDashboard,
@@ -18,6 +19,7 @@ import {
   X,
   Info,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 
 interface NavItem {
@@ -29,6 +31,25 @@ interface NavItem {
   badgeColor?: string;
 }
 
+// 6 Modul dengan proteksi akses (membutuhkan Super Admin atau sandi/PIN)
+const PROTECTED_NAV_MODULES: ActiveNavModule[] = [
+  'master-data',
+  'executive',
+  'hr',
+  'finance',
+  'warehouse',
+  'purchasing',
+];
+
+const PROTECTED_MODULE_NAMES: Record<string, { id: string; en: string }> = {
+  'master-data': { id: 'Master Data', en: 'Master Data' },
+  'executive': { id: 'Eksekutif & Manajerial', en: 'Executive & Managerial' },
+  'hr': { id: 'SDM & Personalia', en: 'Human Resources' },
+  'finance': { id: 'Keuangan & Akuntansi', en: 'Finance & Accounting' },
+  'warehouse': { id: 'Gudang & Inventori', en: 'Warehouse & Inventory' },
+  'purchasing': { id: 'Pengadaan & Pembelian', en: 'Purchasing' },
+};
+
 export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => void }> = ({
   isOpenMobile,
   onCloseMobile,
@@ -36,6 +57,8 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
   const {
     activeNav,
     setActiveNav,
+    activeUser,
+    isSuperAdminAuthenticated,
     products,
     purchasing,
     purchaseRequests,
@@ -48,6 +71,11 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
   } = useApp();
   const [hoveredNavId, setHoveredNavId] = useState<string | null>(null);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
+
+  // State untuk Proteksi Akses Modul (QuickAuthModal)
+  const [pendingNavModule, setPendingNavModule] = useState<ActiveNavModule | null>(null);
+  const [pendingNavTitle, setPendingNavTitle] = useState<string>('');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const isLight = theme === 'light';
   const isEn = language === 'en';
@@ -243,6 +271,31 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
     },
   ];
 
+  const isSuperAdmin = Boolean(
+    isSuperAdminAuthenticated || activeUser?.role === 'Super Admin'
+  );
+
+  // Handler Klik Menu Navigasi dengan Proteksi Otorisasi
+  const handleNavClick = (itemId: ActiveNavModule, itemLabel: string) => {
+    const isProtected = PROTECTED_NAV_MODULES.includes(itemId);
+
+    // Aturan Akses:
+    // - Jika user sudah Super Admin, buka modul secara langsung tanpa pop-up.
+    // - Jika belum, tahan perpindahan modul dan munculkan QuickAuthModal.
+    // - Modul 'home' dan 'pos' (serta dashboard) tetap bebas dibuka tanpa kunci.
+    if (isProtected && !isSuperAdmin) {
+      const modInfo = PROTECTED_MODULE_NAMES[itemId];
+      const targetTitle = modInfo ? (isEn ? modInfo.en : modInfo.id) : itemLabel;
+      setPendingNavModule(itemId);
+      setPendingNavTitle(targetTitle);
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    setActiveNav(itemId);
+    onCloseMobile();
+  };
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -301,10 +354,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
               <button
                 key={item.id}
                 id={`sidebar-nav-${item.id}`}
-                onClick={() => {
-                  setActiveNav(item.id);
-                  onCloseMobile();
-                }}
+                onClick={() => handleNavClick(item.id, item.label)}
                 onMouseEnter={() => setHoveredNavId(item.id)}
                 onMouseLeave={() => setHoveredNavId(null)}
                 style={isLight || isActive ? undefined : navStyle}
@@ -369,40 +419,52 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                   </span>
                 </div>
 
-                {/* Optional Badge: Jangan render badge angka sama sekali jika 0 atau tidak ada dokumen pending */}
-                {item.id === 'executive' ? (
-                  totalExecutivePending > 0 && Boolean(item.badge) ? (
+                <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
+                  {/* Indikator Gembok Kecil jika modul terproteksi dan user bukan Super Admin */}
+                  {PROTECTED_NAV_MODULES.includes(item.id) && !isSuperAdmin && (
                     <span
-                      className={`text-[10px] xl:text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
-                        isActive
-                          ? isLight
-                            ? 'bg-cyan-200/80 border-cyan-400 text-cyan-900'
-                            : 'bg-cyan-500/25 border-cyan-400/50 text-cyan-200 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
-                          : isLight
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                          : item.badgeColor || 'bg-gray-800 text-gray-400 border-gray-700'
-                      }`}
+                      className="p-1 rounded-md text-amber-400 bg-amber-500/15 border border-amber-500/30 shrink-0 flex items-center justify-center shadow-xs"
+                      title={isEn ? 'Requires Super Admin authorization' : 'Terkunci - Wajib Otorisasi Super Admin'}
                     >
-                      {item.badge}
+                      <Lock className="w-3 h-3 text-amber-400" />
                     </span>
-                  ) : null
-                ) : (
-                  Boolean(item.badge) && item.badge !== 0 && item.badge !== '0' && (
-                    <span
-                      className={`text-[10px] xl:text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
-                        isActive
-                          ? isLight
-                            ? 'bg-cyan-200/80 border-cyan-400 text-cyan-900'
-                            : 'bg-cyan-500/25 border-cyan-400/50 text-cyan-200 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
-                          : isLight
-                          ? 'bg-slate-200 text-slate-800 border-slate-300'
-                          : item.badgeColor || 'bg-gray-800 text-gray-400 border-gray-700'
-                      }`}
-                    >
-                      {item.badge}
-                    </span>
-                  )
-                )}
+                  )}
+
+                  {/* Optional Badge: Jangan render badge angka sama sekali jika 0 atau tidak ada dokumen pending */}
+                  {item.id === 'executive' ? (
+                    totalExecutivePending > 0 && Boolean(item.badge) ? (
+                      <span
+                        className={`text-[10px] xl:text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                          isActive
+                            ? isLight
+                              ? 'bg-cyan-200/80 border-cyan-400 text-cyan-900'
+                              : 'bg-cyan-500/25 border-cyan-400/50 text-cyan-200 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
+                            : isLight
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : item.badgeColor || 'bg-gray-800 text-gray-400 border-gray-700'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    ) : null
+                  ) : (
+                    Boolean(item.badge) && item.badge !== 0 && item.badge !== '0' && (
+                      <span
+                        className={`text-[10px] xl:text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                          isActive
+                            ? isLight
+                              ? 'bg-cyan-200/80 border-cyan-400 text-cyan-900'
+                              : 'bg-cyan-500/25 border-cyan-400/50 text-cyan-200 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
+                            : isLight
+                            ? 'bg-slate-200 text-slate-800 border-slate-300'
+                            : item.badgeColor || 'bg-gray-800 text-gray-400 border-gray-700'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )
+                  )}
+                </div>
               </button>
             );
           })}
@@ -449,6 +511,29 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
         onClose={() => setIsAboutModalOpen(false)}
         isLight={isLight}
         language={language}
+      />
+
+      {/* Modal Otorisasi Ringkas Akses Modul */}
+      <QuickAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setPendingNavModule(null);
+        }}
+        onSuccess={() => {
+          if (pendingNavModule) {
+            setActiveNav(pendingNavModule);
+            setPendingNavModule(null);
+          }
+          setIsAuthModalOpen(false);
+          onCloseMobile();
+        }}
+        moduleTitle={pendingNavTitle}
+        subtitle={
+          isEn
+            ? `Masukkan sandi atau PIN untuk mengakses ${pendingNavTitle}`
+            : `Masukkan sandi atau PIN untuk mengakses ${pendingNavTitle}`
+        }
       />
     </>
   );

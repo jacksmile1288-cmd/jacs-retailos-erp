@@ -39,13 +39,16 @@ const MainLayout: React.FC = () => {
     toggleGlobalMaintenance,
     businessProfile,
     isFirstRunSetup,
+    isSuperAdminAuthenticated,
     setIsSuperAdminAuthenticated,
     showToast,
   } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isFullscreenCashier = activeNav === 'pos' && isCashierWorkspaceActive;
-  const isSuperAdmin = activeUser?.role === 'Super Admin';
+  const isSuperAdmin = Boolean(
+    isSuperAdminAuthenticated || activeUser?.role === 'Super Admin'
+  );
 
   // If first run setup is active or business profile is unconfigured, redirect initial flow directly to Super Admin profile onboarding
   useEffect(() => {

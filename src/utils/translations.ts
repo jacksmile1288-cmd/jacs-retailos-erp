@@ -10,9 +10,16 @@ export interface DivisionText {
 
 export const DIVISIONS_TRANSLATIONS: Record<Language, Record<string, DivisionText>> = {
   id: {
+    'master-data': {
+      id: 'master-data',
+      code: '01',
+      name: 'Master Data & Katalog',
+      sub: 'Katalog Produk, Barcode, Kategori & Satuan',
+      desc: 'Pusat canonical master data produk, barcode, multi-satuan UOM, kategori barang, penentuan HPP dan tier harga jual.',
+    },
     executive: {
       id: 'executive',
-      code: '01',
+      code: '02',
       name: 'Eksekutif & Manajerial',
       sub: 'KPI, Margin & Antrean Persetujuan',
       desc: 'Pantau omset, margin profitabilitas, efisiensi operasional, dan persetujuan dokumen berisiko tinggi.',
@@ -54,9 +61,16 @@ export const DIVISIONS_TRANSLATIONS: Record<Language, Record<string, DivisionTex
     },
   },
   en: {
+    'master-data': {
+      id: 'master-data',
+      code: '01',
+      name: 'Master Data & Catalog',
+      sub: 'Product Catalog, Barcode, Categories & Units',
+      desc: 'Canonical master data hub for product catalog, barcodes, multi-units of measure, categories, COGS, and price tiers.',
+    },
     executive: {
       id: 'executive',
-      code: '01',
+      code: '02',
       name: 'Executive & Managerial',
       sub: 'KPI, Margin & Approval Queue',
       desc: 'Monitor revenue, net profit margin, operational efficiency, and high-risk document approvals.',

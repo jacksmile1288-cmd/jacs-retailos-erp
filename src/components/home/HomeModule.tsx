@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { ActiveNavModule } from '../../types';
+import { QuickAuthModal } from '../auth/QuickAuthModal';
 import { getReactiveNeonGlowStyle } from '../../utils/neonGlow';
 import { DIVISIONS_TRANSLATIONS } from '../../utils/translations';
 import {
@@ -19,6 +21,7 @@ import {
   ArrowRight,
   Database,
   BookOpen,
+  Lock,
 } from 'lucide-react';
 
 interface RoleModuleData {
@@ -36,8 +39,49 @@ interface RoleModuleData {
 
 const ROLE_MODULES: RoleModuleData[] = [
   {
-    id: 'executive',
+    id: 'master-data',
     order: '01',
+    title: 'Master Data & Katalog',
+    subTitle: 'Katalog Produk, Barcode, Kategori & Satuan',
+    colorHex: '#00f2fe',
+    icon: Database,
+    summary:
+      'Pusat canonical master data perusahaan mencakup katalog produk, barcode scanner, multi-satuan (UOM), kategori barang, penetapan HPP, tier harga jual, dan sinkronisasi ke seluruh terminal kasir.',
+    objectives: [
+      'Menstandarkan barcode dan identitas SKU di seluruh cabang dan terminal kasir.',
+      'Mengelola harga beli (HPP) modal dan struktur harga jual grosir/ritel bertingkat.',
+      'Menjaga konsistensi data master vendor, pelanggan member, dan kategori barang.',
+    ],
+    sopSteps: [
+      {
+        step: 1,
+        title: 'Pendaftaran SKU & Barcode Produk',
+        desc: 'Mendaftarkan item baru dengan kode SKU unik, scan barcode fisik, dan penentuan kategori barang.',
+      },
+      {
+        step: 2,
+        title: 'Penetapan Multi-Satuan & Konversi',
+        desc: 'Mengatur hierarki satuan (Pcs, Lusin, Dus, Karton) beserta faktor pengali konversi stok.',
+      },
+      {
+        step: 3,
+        title: 'Konfigurasi Harga Jual & HPP',
+        desc: 'Menetapkan HPP modal, harga eceran, harga grosir bertingkat, dan margin keuntungan standar.',
+      },
+      {
+        step: 4,
+        title: 'Sinkronisasi Data ke Terminal Kasir',
+        desc: 'Memastikan perubahan data produk segera terdistribusi ke seluruh loket kasir online maupun offline.',
+      },
+    ],
+    dataIntegration: [
+      { target: 'DB_Products', desc: 'Database induk produk, barcode, harga beli, dan harga jual.' },
+      { target: 'DB_Categories', desc: 'Hierarki kategori, departemen, dan pengelompokan produk ritel.' },
+    ],
+  },
+  {
+    id: 'executive',
+    order: '02',
     title: 'Eksekutif & Manajerial (Executive & Managerial)',
     subTitle: 'KPI, Margin & Antrean Persetujuan (KPI, Margin & Approval Queue)',
     colorHex: '#10B981',
@@ -78,7 +122,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
   {
     id: 'hr',
-    order: '02',
+    order: '03',
     title: 'SDM & Personalia (Human Resources)',
     subTitle: 'Staf, Presensi & Cuti (Staff, Attendance & Leave)',
     colorHex: '#00f2fe',
@@ -119,7 +163,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
   {
     id: 'finance',
-    order: '03',
+    order: '04',
     title: 'Keuangan & Akuntansi (Finance & Accounting)',
     subTitle: 'Kas, AP/AR & Arus Kas (Cash, AP/AR & Cash Flow)',
     colorHex: '#f59e0b',
@@ -160,7 +204,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
   {
     id: 'purchasing',
-    order: '04',
+    order: '05',
     title: 'Pengadaan Barang',
     subTitle: 'Pengajuan, Pesanan Pembelian & Penerimaan Barang',
     colorHex: '#f43f5e',
@@ -201,7 +245,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
   {
     id: 'warehouse',
-    order: '05',
+    order: '06',
     title: 'Gudang & Inventori (Warehouse & Inventory)',
     subTitle: 'SKU, Mutasi & Stok Opname (SKU, Stock Movement & Stock Opname)',
     colorHex: '#8b5cf6',
@@ -242,7 +286,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
   {
     id: 'pos',
-    order: '06',
+    order: '07',
     title: 'Kasir & Penjualan (POS)',
     subTitle: 'Transaksi Kasir & Cetak Struk Penjualan',
     colorHex: '#ff7a00',
@@ -284,7 +328,16 @@ const ROLE_MODULES: RoleModuleData[] = [
 ];
 
 export const HomeModule: React.FC = () => {
-  const { theme, language, activeNeonCards, setActiveNeonCard, setActiveNav } = useApp();
+  const {
+    theme,
+    language,
+    activeNeonCards,
+    setActiveNeonCard,
+    setActiveNav,
+    businessProfile,
+    activeUser,
+    isSuperAdminAuthenticated,
+  } = useApp();
   const [hoveredRoleId, setHoveredRoleId] = useState<string | null>(null);
 
   const isLight = theme === 'light';
@@ -294,6 +347,29 @@ export const HomeModule: React.FC = () => {
   const activeRoleId = activeNeonCards['home'] || 'executive';
   const activeRole = ROLE_MODULES.find((r) => r.id === activeRoleId) || ROLE_MODULES[0];
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // QuickAuthModal state untuk proteksi pembukaan modul divisi
+  const [pendingNav, setPendingNav] = useState<ActiveNavModule | null>(null);
+  const [pendingNavTitle, setPendingNavTitle] = useState<string>('');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  const isSuperAdmin = Boolean(
+    isSuperAdminAuthenticated || activeUser?.role === 'Super Admin'
+  );
+
+  const handleOpenModule = (targetId: string, targetName: string) => {
+    const protectedIds = ['master-data', 'executive', 'hr', 'finance', 'warehouse', 'purchasing'];
+    const isProtected = protectedIds.includes(targetId);
+
+    if (isProtected && !isSuperAdmin) {
+      setPendingNav(targetId as ActiveNavModule);
+      setPendingNavTitle(targetName);
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    setActiveNav(targetId as ActiveNavModule);
+  };
 
   const activeDivisionInfo =
     DIVISIONS_TRANSLATIONS[language][activeRole.id] || {
@@ -310,7 +386,7 @@ export const HomeModule: React.FC = () => {
 
   return (
     <div id="home-module-container" className="w-full max-w-[1360px] mx-auto flex flex-col space-y-4 xl:space-y-5">
-      {/* 1. MINIMALIST CLEAN HEADER */}
+      {/* 1. DYNAMIC STORE BRANDING & OPERATIONAL HEADER */}
       <div
         className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 transition duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
           isLight
@@ -318,33 +394,72 @@ export const HomeModule: React.FC = () => {
             : 'bg-[#161b22] border-[#30363d]'
         }`}
       >
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#0052FF]/15 border border-[#0052FF]/40 text-[#58a6ff] text-[10px] xl:text-[11px] font-semibold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>
-              {isEn
-                ? '6 Core Operational Divisions'
-                : '6 Divisi Operasional Terpadu'}
-            </span>
-          </div>
-          <h1
-            className={`text-lg sm:text-xl xl:text-2xl font-semibold tracking-tight ${
-              isLight ? 'text-slate-900' : 'text-[#e6edf3]'
-            }`}
-            style={{ fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif" }}
-          >
-            Operational Hub
-          </h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {isEn
-              ? 'Operational Control & Navigation Hub'
-              : 'Pusat Kendali & Navigasi Modul Operasional'}
-          </p>
-        </div>
+        {(() => {
+          const companyName =
+            (businessProfile as any)?.companyName?.trim() ||
+            businessProfile?.name?.trim() ||
+            'KHANSA SWALAYAN';
+          const companyAddress =
+            businessProfile?.address?.trim() ||
+            'Jl. Operasional Ritel No. 1, Makassar';
+
+          return (
+            <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+              {businessProfile?.logoUrl ? (
+                <img
+                  src={businessProfile.logoUrl}
+                  alt={companyName}
+                  className="w-12 h-12 object-contain rounded-xl border border-slate-700/50 bg-slate-800/40 p-1 shrink-0 shadow-sm"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white font-black text-xl flex items-center justify-center shrink-0 shadow-md">
+                  {companyName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="space-y-0.5 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0052FF]/15 border border-[#0052FF]/40 text-[#58a6ff] text-[10px] xl:text-[11px] font-semibold">
+                    <Sparkles className="w-3.5 h-3.5 text-[#00f2fe]" />
+                    <span>
+                      {isEn
+                        ? '6 Core Operational Divisions'
+                        : '6 Divisi Operasional Terpadu'}
+                    </span>
+                  </div>
+                  {businessProfile?.category && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                      isLight
+                        ? 'bg-slate-100 text-slate-600 border-slate-200'
+                        : 'bg-slate-800/80 text-gray-300 border-slate-700'
+                    }`}>
+                      {businessProfile.category}
+                    </span>
+                  )}
+                </div>
+                <h1
+                  className={`text-xl sm:text-2xl font-black tracking-tight ${
+                    isLight ? 'text-slate-900' : 'text-white'
+                  }`}
+                  style={{ fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif" }}
+                >
+                  {companyName}
+                </h1>
+                <p className={`text-xs font-normal mt-0.5 line-clamp-2 max-w-2xl ${
+                  isLight ? 'text-slate-600' : 'text-slate-300'
+                }`}>
+                  {companyAddress}
+                </p>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
-      {/* 2. 6 KARTU BAR NEON INTERAKTIF BERBEDA WARNA DENGAN HOVER GLOW REACTIVE (FORMASI 3 KOLOM: 3 ATAS, 3 BAWAH) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 xl:gap-4">
+      {/* 2. KARTU BAR NEON INTERAKTIF BERBEDA WARNA DENGAN HOVER GLOW REACTIVE */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5 xl:gap-4">
         {ROLE_MODULES.map((role) => {
           const Icon = role.icon;
           const isSelected = activeRole.id === role.id;
@@ -356,6 +471,9 @@ export const HomeModule: React.FC = () => {
               sub: role.subTitle,
               desc: role.summary,
             };
+
+          const isProtected = ['master-data', 'executive', 'hr', 'finance', 'warehouse', 'purchasing'].includes(role.id);
+          const isLocked = isProtected && !isSuperAdmin;
 
           return (
             <button
@@ -378,23 +496,34 @@ export const HomeModule: React.FC = () => {
 
               {/* Upper Content Group */}
               <div className="w-full space-y-2.5 xl:space-y-3">
-                {/* Icon & Order Badge */}
+                {/* Icon & Order Badge + Gembok Terkunci */}
                 <div className="flex items-center justify-between w-full pt-0.5">
-                  <div
-                    className="w-9 h-9 xl:w-10 xl:h-10 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shrink-0"
-                    style={{
-                      backgroundColor: `${role.colorHex}20`,
-                      border: `1px solid ${role.colorHex}45`,
-                    }}
-                  >
-                    <Icon
-                      className="w-4 h-4 xl:w-5 xl:h-5"
-                      style={{ color: role.colorHex }}
-                    />
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-9 h-9 xl:w-10 xl:h-10 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shrink-0"
+                      style={{
+                        backgroundColor: `${role.colorHex}20`,
+                        border: `1px solid ${role.colorHex}45`,
+                      }}
+                    >
+                      <Icon
+                        className="w-4 h-4 xl:w-5 xl:h-5"
+                        style={{ color: role.colorHex }}
+                      />
+                    </div>
+                    {isLocked && (
+                      <span
+                        className="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 text-[10px] font-mono font-bold shrink-0 shadow-xs"
+                        title={isEn ? 'Requires Super Admin authorization' : 'Terkunci - Wajib Otorisasi Super Admin'}
+                      >
+                        <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+                        <span className="hidden sm:inline">{isEn ? 'LOCKED' : 'KUNCI'}</span>
+                      </span>
+                    )}
                   </div>
 
                   <span
-                    className="font-mono text-[10px] xl:text-xs font-black tracking-widest px-2 py-0.5 xl:px-2.5 xl:py-1 rounded-full"
+                    className="font-mono text-[10px] xl:text-xs font-black tracking-widest px-2 py-0.5 xl:px-2.5 xl:py-1 rounded-full shrink-0"
                     style={{
                       backgroundColor: `${role.colorHex}15`,
                       color: role.colorHex,
@@ -430,11 +559,12 @@ export const HomeModule: React.FC = () => {
                 <span
                   onClick={(e) => {
                     e.stopPropagation();
-                    setActiveNav(role.id as any);
+                    handleOpenModule(role.id, divisionInfo.name);
                   }}
-                  className="inline-flex items-center gap-1.5 font-semibold hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-bold hover:underline cursor-pointer"
                   style={{ color: role.colorHex }}
                 >
+                  {isLocked && <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
                   <span>{isEn ? 'Open Module' : 'Buka Modul'}</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </span>
@@ -714,12 +844,17 @@ export const HomeModule: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setIsDetailModalOpen(false);
-                    setActiveNav(activeRole.id as any);
+                    handleOpenModule(activeRole.id, activeDivisionInfo.name);
+                    if (isSuperAdmin) {
+                      setIsDetailModalOpen(false);
+                    }
                   }}
                   className="px-4 py-2 rounded-xl text-slate-950 font-bold cursor-pointer shadow-md transition hover:brightness-110 flex items-center gap-1.5"
                   style={{ backgroundColor: activeRole.colorHex }}
                 >
+                  {['master-data', 'executive', 'hr', 'finance', 'warehouse', 'purchasing'].includes(activeRole.id) && !isSuperAdmin && (
+                    <Lock className="w-4 h-4 text-slate-950 shrink-0" />
+                  )}
                   <span>{isEn ? `Open ${activeDivisionInfo.name}` : `Buka Modul ${activeDivisionInfo.name}`}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
@@ -729,8 +864,28 @@ export const HomeModule: React.FC = () => {
         </div>
       )}
 
-
-
+      {/* Modal Otorisasi Ringkas Akses Modul */}
+      <QuickAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setPendingNav(null);
+        }}
+        onSuccess={() => {
+          if (pendingNav) {
+            setActiveNav(pendingNav);
+            setPendingNav(null);
+          }
+          setIsAuthModalOpen(false);
+          setIsDetailModalOpen(false);
+        }}
+        moduleTitle={pendingNavTitle}
+        subtitle={
+          isEn
+            ? `Authorization required to access ${pendingNavTitle}`
+            : `Otorisasi dibutuhkan untuk mengakses ${pendingNavTitle}`
+        }
+      />
     </div>
   );
 };

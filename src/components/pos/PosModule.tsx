@@ -129,6 +129,7 @@ export const PosModule: React.FC = () => {
     toggleTerminalLock,
     setAllTerminalsLock,
     activeUser,
+    isSuperAdminAuthenticated,
     openPinAuth,
     products,
     customers,
@@ -165,7 +166,9 @@ export const PosModule: React.FC = () => {
 
   const isEn = globalLanguage === 'en';
   const language: 'ID' | 'EN' = isEn ? 'EN' : 'ID';
-  const setLanguage = (l: 'ID' | 'EN') => setGlobalLanguage(l.toLowerCase() as 'id' | 'en');
+  const isSuperAdmin = Boolean(
+    isSuperAdminAuthenticated || activeUser?.role === 'Super Admin'
+  );
 
   // Fullscreen & Register State
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1981,15 +1984,21 @@ export const PosModule: React.FC = () => {
   // Terminal Selection click handler (Enforces Lock & Security PIN, and Shift Check)
   const handleTerminalCardClick = (term: Terminal) => {
     const is0708 = term.id === 'T-07' || term.id === 'T-08' || term.name === 'KASIR 07' || term.name === 'KASIR 08';
+    const isTerminalLocked = isSuperAdmin ? false : Boolean(term.isLocked);
 
-    if (term.isLocked && !is0708) {
+    if (isTerminalLocked && !is0708) {
       setTerminalToUnlock(term);
       setIsUnlockModalOpen(true);
       return;
     }
 
     let targetTerm: Terminal = term;
-    if (is0708) {
+    if (isSuperAdmin) {
+      targetTerm = {
+        ...term,
+        isLocked: false,
+      };
+    } else if (is0708) {
       const is08 = term.id === 'T-08' || term.name === 'KASIR 08';
       targetTerm = {
         ...term,
@@ -2004,8 +2013,8 @@ export const PosModule: React.FC = () => {
         id: term.id || 'T-02',
         name: 'KASIR 02',
         code: 'KASIR-02',
-        businessModel: 'Ritel & Kasir Bantuan (Back-End)',
-        colorHex: '#00f2fe',
+        businessModel: term.businessModel || 'Kuliner & Resto (F&B)',
+        colorHex: term.colorHex || '#10B981',
         isLocked: false,
       };
     }
@@ -2638,11 +2647,25 @@ export const PosModule: React.FC = () => {
                 >
                   2 Unit (Kasir + Back-End)
                 </button>
-                {(businessProfile?.posUnitCount ?? 10) > 2 && (
-                  <span className="px-2 py-0.5 rounded-full font-bold bg-[#0052FF] text-white text-[10px]">
-                    {(businessProfile?.posUnitCount ?? 10)} Unit
-                  </span>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateBusinessProfile({ posUnitCount: 8, cashierArchitecture: 'HYBRID_FRONT_BACKEND' });
+                    showToast(
+                      language === 'ID'
+                        ? 'Profil toko diset: 8 Unit Terminal Kasir Utuh'
+                        : 'Store profile set: 8 Cashier Units'
+                    );
+                  }}
+                  className={`px-2.5 py-1 rounded-full font-black transition cursor-pointer ${
+                    (businessProfile?.posUnitCount ?? 8) >= 8
+                      ? 'bg-[#0052FF] text-white shadow-xs'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                  title="Toko 8 Unit: 8 Terminal Kasir Utuh"
+                >
+                  8 Unit (Utuh)
+                </button>
               </div>
 
               {/* Tombol Kunci Semua Kasir */}
@@ -2711,101 +2734,20 @@ export const PosModule: React.FC = () => {
               return 'ALL'; // Ritel Modern & Multi-Industry (menampilkan semua terminal multi-industri)
             })();
 
-            // Filter terminal: sembunyikan terminal industri lain jika profil memilih spesifik industri
-            let filteredTerminals = terminals;
-            if (allowedIndustry !== 'ALL') {
-              const matched = terminals.filter((term) => getTerminalIndustry(term) === allowedIndustry);
-              filteredTerminals = matched.length > 0 ? matched : terminals;
-            }
+            // 1. Tampilkan 8 unit terminal kasir secara utuh di grid (terminals.slice(0, 8))
+            const displayedTerminals = terminals.slice(0, 8);
 
-            // Batasi sejumlah 'Jumlah Unit Kasir' yang ditentukan di Profil Entitas Usaha
-            const maxUnits = Math.max(1, businessProfile?.posUnitCount ?? 10);
-            const displayedTerminals = filteredTerminals.slice(0, maxUnits);
-
-            const gridColsClass =
-              displayedTerminals.length === 1
-                ? 'grid grid-cols-1 max-w-xl mx-auto gap-4'
-                : displayedTerminals.length === 2
-                ? 'grid grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto gap-5'
-                : displayedTerminals.length === 3
-                ? 'grid grid-cols-1 sm:grid-cols-3 max-w-4xl mx-auto gap-4'
-                : displayedTerminals.length === 4
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5'
-                : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5';
+            // 2. Susun grid responsif yang presisi: grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 dengan gap seimbang
+            const gridColsClass = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4';
 
             return (
               <div className={gridColsClass}>
                 {displayedTerminals.map((rawTerm, tIdx) => {
-                  // Tentukan Tipe Terminal:
-                  // 1. Jika unit toko = 1: HANYA 1 kartu bertipe "All-in-One (Kasir & Input Produk)"
-                  // 2. Jika unit toko = 2:
-                  //    - Bar 1: Tipe "Kasir / Front-End" (tombol: "Buka Kasir →")
-                  //    - Bar 2: Tipe "Input Produk / Back-End" (tombol: "Buka Panel Input Produk →")
-                  // 3. Jika unit toko > 2:
-                  //    - Sesuai arsitektur (Hybrid: Bar terakhir Back-End, sisanya Front-End; Terpusat: Semua Front-End)
-                  type TerminalCardType = 'ALL_IN_ONE' | 'FRONT_END' | 'BACK_END';
-                  let cardType: TerminalCardType = 'FRONT_END';
-
-                  if (rawTerm.terminalType) {
-                    cardType = rawTerm.terminalType;
-                  } else if (displayedTerminals.length === 1) {
-                    cardType = 'ALL_IN_ONE';
-                  } else if (displayedTerminals.length === 2) {
-                    cardType = tIdx === 0 ? 'FRONT_END' : 'BACK_END';
-                  } else {
-                    const arch = businessProfile?.cashierArchitecture || 'CENTRALIZED_FRONTEND';
-                    if ((arch === 'HYBRID_FRONT_BACKEND' || arch === 'HYBRID_FRONT_BACK') && tIdx === displayedTerminals.length - 1) {
-                      cardType = 'BACK_END';
-                    } else {
-                      cardType = 'FRONT_END';
-                    }
-                  }
-
-                  // Penyesuaian tema warna neon dan data display untuk masing-masing tipe
                   const is07 = rawTerm.id === 'T-07' || rawTerm.name === 'KASIR 07';
                   const is08 = rawTerm.id === 'T-08' || rawTerm.name === 'KASIR 08';
-                  const is02 =
-                    rawTerm.id === 'T-02' ||
-                    rawTerm.name === 'KASIR 02' ||
-                    rawTerm.code === 'KASIR-02' ||
-                    (displayedTerminals.length === 2 && tIdx === 1) ||
-                    (displayedTerminals.length > 1 && cardType === 'BACK_END');
                   let term = rawTerm;
 
-                  if (cardType === 'ALL_IN_ONE') {
-                    term = {
-                      ...rawTerm,
-                      name: rawTerm.name || 'TERMINAL 01 (ALL-IN-ONE)',
-                      colorHex: rawTerm.colorHex || '#10b981', // Emerald
-                      businessModel: rawTerm.businessModel || (language === 'ID' ? 'All-in-One: Kasir & Input Produk Terpadu' : 'All-in-One: Unified Cashier & Product Input'),
-                    };
-                  } else if (is02) {
-                    term = {
-                      ...rawTerm,
-                      id: rawTerm.id || 'T-02',
-                      name: rawTerm.name.includes('02')
-                        ? rawTerm.name
-                        : displayedTerminals.length === 2
-                        ? 'TERMINAL 02 (BACK-END)'
-                        : (rawTerm.name + ' (BACK-END)'),
-                      code: 'KASIR-02',
-                      colorHex: '#00f2fe', // Cyan Neon
-                      businessModel: language === 'ID' ? 'Dual-Mode: Input Master Produk & Kasir Bantuan' : 'Dual-Mode: Product Master Input & Backup Cashier',
-                    };
-                  } else if (cardType === 'BACK_END') {
-                    term = {
-                      ...rawTerm,
-                      name: rawTerm.name.includes('BACK-END')
-                        ? rawTerm.name
-                        : displayedTerminals.length === 2 && !rawTerm.terminalType
-                        ? (language === 'ID' ? 'TERMINAL 02 - BACK-END' : 'TERMINAL 02 - BACK-END')
-                        : rawTerm.name.includes('KASIR')
-                        ? rawTerm.name.replace('KASIR', 'TERMINAL') + ' (BACK-END)'
-                        : rawTerm.name,
-                      colorHex: rawTerm.colorHex || '#f59e0b', // Amber / Gold
-                      businessModel: rawTerm.businessModel || (language === 'ID' ? 'Input Produk, Barcode, Kategori & Stok' : 'Product Input, Barcode, Category & Stock'),
-                    };
-                  } else if (is07) {
+                  if (is07) {
                     term = {
                       ...rawTerm,
                       colorHex: '#38bdf8', // Neon Blue
@@ -2816,14 +2758,15 @@ export const PosModule: React.FC = () => {
                   } else if (is08) {
                     term = {
                       ...rawTerm,
-                      colorHex: '#ff7a00', // Neon Orange
+                      colorHex: '#84cc16', // Lime
                       subLabel: 'Data Master',
                       businessModel: 'Bengkel & Otomotif',
                       isLocked: false,
                     };
                   }
 
-                  const isLocked = term.isLocked;
+                  // 2. Hak Akses Super Admin: jika Super Admin aktif, seluruh terminal otomatis terbuka (unlocked) dan siap diakses
+                  const isLocked = isSuperAdmin ? false : Boolean(term.isLocked);
                   const isSelected = activeTerminal.id === term.id;
                   const isHovered = hoveredTerminalId === term.id;
                   const neonStyle = getReactiveNeonGlowStyle(
@@ -2840,7 +2783,7 @@ export const PosModule: React.FC = () => {
                       style={neonStyle}
                       onMouseEnter={() => setHoveredTerminalId(term.id)}
                       onMouseLeave={() => setHoveredTerminalId(null)}
-                      className={`relative rounded-2xl border p-4 sm:p-5 transition-all duration-150 ease-out flex flex-col justify-between select-none cursor-pointer min-h-[160px] ${
+                      className={`relative rounded-2xl border p-4 sm:p-5 transition-all duration-150 ease-out flex flex-col justify-between h-full min-h-[220px] select-none cursor-pointer ${
                         isLight ? 'bg-white' : 'bg-[#161b22]'
                       } ${
                         isLocked
@@ -2850,18 +2793,7 @@ export const PosModule: React.FC = () => {
                           : 'hover:scale-[1.01]'
                       }`}
                       onClick={() => {
-                        if (is02) {
-                          handleOpenKasir02(term);
-                        } else if (cardType === 'BACK_END') {
-                          setActiveNav('master-data');
-                          showToast(
-                            language === 'ID'
-                              ? 'Membuka Panel Input Produk & Master Data...'
-                              : 'Opening Product Input & Master Data Panel...'
-                          );
-                        } else {
-                          handleTerminalCardClick(term);
-                        }
+                        handleTerminalCardClick(term);
                       }}
                     >
                       {/* Top Glowing Neon Bar */}
@@ -2873,8 +2805,9 @@ export const PosModule: React.FC = () => {
                         }}
                       />
 
-                      {/* Header: Terminal Name & Lock status icon */}
-                      <div>
+                      {/* Konten Atas: Header & Informasi Peran Terminal */}
+                      <div className="flex-1 flex flex-col justify-start">
+                        {/* Header: Nama Terminal & Indikator Status */}
                         <div className="flex items-center justify-between mt-1 mb-2">
                           <span
                             className="font-black text-sm sm:text-base tracking-wide"
@@ -2893,24 +2826,22 @@ export const PosModule: React.FC = () => {
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                                   ONLINE
                                 </span>
-                                {cardType !== 'BACK_END' && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleTerminalLock(term.id, true);
-                                      showToast(
-                                        language === 'ID'
-                                          ? `Terminal ${term.name} telah dikunci`
-                                          : `Terminal ${term.name} is locked`
-                                      );
-                                    }}
-                                    className="p-1 rounded-md bg-transparent hover:bg-[#21262d] text-gray-400 hover:text-rose-400 transition cursor-pointer"
-                                    title="Kunci Terminal ini"
-                                  >
-                                    <Unlock className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleTerminalLock(term.id, true);
+                                    showToast(
+                                      language === 'ID'
+                                        ? `Terminal ${term.name} telah dikunci`
+                                        : `Terminal ${term.name} is locked`
+                                    );
+                                  }}
+                                  className="p-1 rounded-md bg-transparent hover:bg-[#21262d] text-gray-400 hover:text-rose-400 transition cursor-pointer"
+                                  title="Kunci Terminal ini"
+                                >
+                                  <Unlock className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             )}
                             <span
@@ -2923,212 +2854,120 @@ export const PosModule: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* BADGE TIPE TEGAS DI KARTU TERMINAL */}
-                        <div className="mb-2.5">
-                          {cardType === 'ALL_IN_ONE' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono font-black tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/40 shadow-xs">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                              [ TIPE: ALL-IN-ONE (KASIR &amp; INPUT PRODUK) ]
-                            </span>
-                          ) : is02 ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono font-black tracking-wider bg-gradient-to-r from-amber-500/20 to-cyan-500/20 text-amber-300 border border-amber-500/40 shadow-xs">
-                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                              [ TIPE: HYBRID (BACK-END &amp; KASIR BANTUAN) ]
-                            </span>
-                          ) : cardType === 'FRONT_END' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono font-black tracking-wider bg-blue-500/15 text-blue-400 border border-blue-500/40 shadow-xs">
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                              [ TIPE: KASIR (FRONT-END) ]
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono font-black tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/40 shadow-xs">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                              [ TIPE: INPUT PRODUK (BACK-END) ]
-                            </span>
-                          )}
+                        {/* Badge Tipe / Industri Terminal */}
+                        <div className="mb-2">
+                          <span
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono font-black tracking-wider border shadow-xs"
+                            style={{
+                              backgroundColor: isLight ? `${term.colorHex}15` : `${term.colorHex}20`,
+                              color: term.colorHex,
+                              borderColor: `${term.colorHex}40`,
+                            }}
+                          >
+                            <span
+                              className="w-1.5 h-1.5 rounded-full animate-pulse"
+                              style={{ backgroundColor: term.colorHex }}
+                            />
+                            [ TIPE: {language === 'ID' ? (TERMINAL_BILINGUAL[term.id]?.id || term.businessModel || 'Kasir Standar') : (TERMINAL_BILINGUAL[term.id]?.en || term.location || 'Standard Cashier')} ]
+                          </span>
                         </div>
 
-                        {/* LOCKED STATE VIEW */}
+                        {/* Deskripsi Model Bisnis / Peran Operasional */}
                         {isLocked ? (
-                          <div className="py-2 space-y-1.5">
-                            <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-mono font-bold bg-rose-500/15 text-rose-400 border border-rose-500/40 w-full justify-center">
+                          <div className="py-1 space-y-1">
+                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-rose-500/15 text-rose-400 border border-rose-500/40 w-full justify-center">
                               <Lock className="w-3 h-3 shrink-0" />
                               <span>{language === 'ID' ? 'TERKUNCI / PEMELIHARAAN' : 'LOCKED / MAINTENANCE'}</span>
                             </div>
                             <p className="text-xs font-bold text-gray-200 line-clamp-1">
                               {language === 'EN'
-                                ? (TERMINAL_BILINGUAL[term.id]?.en || TERMINAL_TRANSLATIONS[term.id]?.businessModel || term.location)
+                                ? (TERMINAL_BILINGUAL[term.id]?.en || term.location || term.businessModel)
                                 : (TERMINAL_BILINGUAL[term.id]?.id || term.businessModel || term.location)}
                             </p>
-                            <div className="text-[10px] text-amber-400 font-semibold flex items-center justify-center gap-1 pt-1">
-                              <span>{language === 'ID' ? 'Buka via PIN Admin' : 'Unlock with PIN'}</span>
-                            </div>
                           </div>
                         ) : (
-                          /* UNLOCKED STATE: Clean Business Model & Role Description Only */
-                          <div className="space-y-1.5">
+                          <div className="space-y-1 mb-2">
                             <div
-                              className={`text-xs font-bold ${
+                              className={`text-xs font-bold line-clamp-1 ${
                                 isLight ? 'text-slate-800' : 'text-gray-100'
                               }`}
                             >
-                              {cardType === 'ALL_IN_ONE'
-                                ? (language === 'ID' ? 'All-in-One: Register Kasir & Input Produk' : 'All-in-One: Cashier Register & Product Input')
-                                : is02
-                                ? (language === 'ID' ? 'Dual-Mode: Input Master Produk & Kasir Bantuan' : 'Dual-Mode: Product Master Input & Backup Cashier')
-                                : cardType === 'BACK_END'
-                                ? (language === 'ID' ? 'Back-End: Katalog, Barcode, Kategori & Stok' : 'Back-End: Catalog, Barcode, Categories & Stock')
-                                : (language === 'EN'
-                                    ? (TERMINAL_BILINGUAL[term.id]?.en || TERMINAL_TRANSLATIONS[term.id]?.businessModel || term.location)
-                                    : (TERMINAL_BILINGUAL[term.id]?.id || term.businessModel || term.location))}
+                              {language === 'EN'
+                                ? (TERMINAL_BILINGUAL[term.id]?.en || term.location || term.businessModel)
+                                : (TERMINAL_BILINGUAL[term.id]?.id || term.businessModel || term.location)}
                             </div>
                             <div className="text-[11px] text-[#8b949e] line-clamp-2 leading-snug font-medium">
-                              {cardType === 'ALL_IN_ONE'
-                                ? (language === 'ID'
-                                    ? 'Operasional terpadu: kasir langsung siap transaksi barcode dan akses instan input produk master.'
-                                    : 'Unified operations: immediate cashier barcode checkout and instant master product input.')
-                                : is02
-                                ? (language === 'ID'
-                                    ? 'Fungsi ganda: kelola katalog produk & stok di panel admin, atau buka langsung sebagai Kasir 02 (Register ID: KASIR-02) saat antrean ramai.'
-                                    : 'Dual function: manage product catalog & stock in admin panel, or open directly as Cashier 02 (Register ID: KASIR-02) during peak queues.')
-                                : cardType === 'BACK_END'
-                                ? (language === 'ID'
-                                    ? 'Panel kontrol back-end: kelola master produk, penetapan harga jual, HPP, satuan, dan penyesuaian stok gudang.'
-                                    : 'Back-end control panel: manage product master, selling price, COGS, units, and inventory adjustment.')
-                                : (language === 'ID'
-                                    ? 'Loket kasir siap melayani transaksi penjualan, scan barcode, voucher diskon, dan cetak struk.'
-                                    : 'Cashier checkout ready for sales transactions, barcode scanning, discounts, and receipt printing.')}
+                              {language === 'ID'
+                                ? (term.id === 'T-02'
+                                    ? 'Loket kasir siap melayani transaksi FnB / resto, cetak tiket dapur KOT, dan pesanan meja.'
+                                    : term.id === 'T-04'
+                                    ? 'Loket kasir farmasi melayani resep obat, nomor batch, tanggal kedaluwarsa, dan racikan.'
+                                    : term.id === 'T-05'
+                                    ? 'Loket butik siap melayani transaksi fashion, varian ukuran/warna, dan scan barcode.'
+                                    : term.id === 'T-07'
+                                    ? 'Loket elektronik siap melayani scan nomor seri SN/IMEI, kartu garansi, dan spesifikasi unit.'
+                                    : term.id === 'T-08'
+                                    ? 'Loket otomotif melayani estimasi servis kendaraan, suku cadang part, dan mekanik terdaftar.'
+                                    : 'Loket kasir siap melayani transaksi penjualan, scan barcode, voucher diskon, dan cetak struk.')
+                                : (term.id === 'T-02'
+                                    ? 'Cashier register ready for FnB & dining transactions, kitchen KOT tickets, and table orders.'
+                                    : term.id === 'T-04'
+                                    ? 'Pharmacy counter ready for prescription drugs, batch numbers, expiry dates, and compounding.'
+                                    : term.id === 'T-05'
+                                    ? 'Boutique counter ready for fashion sales, color/size variants, and barcode scanning.'
+                                    : term.id === 'T-07'
+                                    ? 'Electronics counter ready for serial number/IMEI tracking, warranty cards, and specs.'
+                                    : term.id === 'T-08'
+                                    ? 'Automotive counter ready for work order service estimates, spare parts, and mechanics.'
+                                    : 'Cashier checkout ready for sales transactions, barcode scanning, discounts, and receipts.')}
                             </div>
                           </div>
                         )}
                       </div>
 
-                      {/* ACTION BUTTONS SESUAI SPESIFIKASI TIPE */}
-                      {!isLocked && (
-                        <div className="pt-3 border-t border-slate-700/30 mt-3 flex items-center justify-between gap-2 flex-wrap">
-                          {cardType === 'ALL_IN_ONE' ? (
-                            <>
-                              <span className="font-bold text-emerald-400 flex items-center gap-1 font-mono text-[11px]">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                {language === 'ID' ? 'SIAP PAKAI' : 'READY'}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleTerminalCardClick(term);
-                                  }}
-                                  className="font-bold text-xs px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 transition shadow-sm cursor-pointer active:scale-95"
-                                >
-                                  <span>{language === 'ID' ? 'Buka Kasir →' : 'Open Register →'}</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveNav('master-data');
-                                    showToast(
-                                      language === 'ID'
-                                        ? 'Membuka Panel Input Produk & Master Data...'
-                                        : 'Opening Product Input Panel & Master Data...'
-                                    );
-                                  }}
-                                  className={`font-bold text-xs px-2.5 py-1.5 rounded-xl border flex items-center gap-1 transition cursor-pointer active:scale-95 ${
-                                    isLight
-                                      ? 'border-slate-300 hover:bg-slate-100 text-slate-700'
-                                      : 'border-slate-700 hover:bg-slate-800 text-gray-200'
-                                  }`}
-                                  title="Buka Panel Input Produk"
-                                >
-                                  <Package className="w-3.5 h-3.5 text-amber-400" />
-                                  <span>{language === 'ID' ? 'Input Produk →' : 'Product Input →'}</span>
-                                </button>
-                              </div>
-                            </>
-                          ) : is02 ? (
-                            <>
-                              <span className="font-bold text-cyan-400 flex items-center gap-1 font-mono text-[11px]">
-                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                                {language === 'ID' ? 'DUAL-MODE' : 'DUAL-MODE'}
-                              </span>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                {/* Tombol 1 (Amber): "Input Produk (Admin)" */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveNav('master-data');
-                                    showToast(
-                                      language === 'ID'
-                                        ? 'Membuka Panel Katalog & Stok Produk (Master Data)...'
-                                        : 'Opening Product Catalog & Stock Panel (Master Data)...'
-                                    );
-                                  }}
-                                  className="font-bold text-xs px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-1.5 transition shadow-sm cursor-pointer active:scale-95"
-                                  title="Membuka panel katalog & stok produk"
-                                >
-                                  <Package className="w-3.5 h-3.5" />
-                                  <span>{language === 'ID' ? 'Input Produk (Admin)' : 'Product Input (Admin)'}</span>
-                                </button>
-
-                                {/* Tombol 2 (Cyan/Biru): "Buka Kasir 02 →" */}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleOpenKasir02(term);
-                                  }}
-                                  className="font-bold text-xs px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white flex items-center gap-1.5 transition shadow-sm cursor-pointer active:scale-95"
-                                  title="Membuka layar register kasir transaksi normal KASIR 02"
-                                >
-                                  <span>{language === 'ID' ? 'Buka Kasir 02 →' : 'Open Register 02 →'}</span>
-                                </button>
-                              </div>
-                            </>
-                          ) : cardType === 'BACK_END' ? (
-                            <>
-                              <span className="font-bold text-amber-400 flex items-center gap-1 font-mono text-[11px]">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                                {language === 'ID' ? 'BACK-END AKTIF' : 'BACK-END ACTIVE'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveNav('master-data');
-                                  showToast(
-                                    language === 'ID'
-                                      ? 'Membuka Panel Input Produk & Master Data...'
-                                      : 'Opening Product Input Panel & Master Data...'
-                                  );
-                                }}
-                                className="font-bold text-xs px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-purple-600 hover:from-amber-500 hover:to-purple-500 text-white flex items-center gap-1.5 transition shadow-sm cursor-pointer active:scale-95"
-                              >
-                                <Package className="w-3.5 h-3.5" />
-                                <span>{language === 'ID' ? 'Buka Panel Input Produk →' : 'Buka Panel Input Produk →'}</span>
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <span className="font-bold text-blue-400 flex items-center gap-1 font-mono text-[11px]">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                                {language === 'ID' ? 'SIAP PAKAI' : 'READY'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleTerminalCardClick(term);
-                                }}
-                                className="font-bold text-xs px-3.5 py-1.5 rounded-xl bg-[#0052FF] hover:bg-[#0043d1] text-white flex items-center gap-1.5 transition shadow-sm cursor-pointer active:scale-95"
-                              >
-                                <span>{language === 'ID' ? 'Buka Kasir →' : 'Open Register →'}</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
+                      {/* 3. Action Buttons: Selalu sejajar rapi di bagian bawah kartu */}
+                      <div
+                        className={`pt-3 border-t ${
+                          isLight ? 'border-slate-200' : 'border-slate-700/40'
+                        } mt-auto flex items-center justify-between gap-2 min-h-[44px]`}
+                      >
+                        {isLocked ? (
+                          <>
+                            <span className="font-bold text-rose-500 dark:text-rose-400 flex items-center gap-1.5 font-mono text-[11px] shrink-0">
+                              <Lock className="w-3 h-3 text-rose-500 shrink-0" />
+                              {language === 'ID' ? 'TERKUNCI' : 'LOCKED'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTerminalCardClick(term);
+                              }}
+                              className="font-bold text-xs px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white flex items-center gap-1.5 transition shadow-sm cursor-pointer active:scale-95 shrink-0"
+                            >
+                              <Unlock className="w-3.5 h-3.5" />
+                              <span>{language === 'ID' ? 'Buka PIN →' : 'Unlock PIN →'}</span>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-bold text-emerald-500 dark:text-emerald-400 flex items-center gap-1.5 font-mono text-[11px] shrink-0">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+                              {language === 'ID' ? 'SIAP PAKAI' : 'READY'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTerminalCardClick(term);
+                              }}
+                              className="font-bold text-xs px-3.5 py-1.5 rounded-xl bg-[#0052FF] hover:bg-[#0043d1] text-white flex items-center gap-1.5 transition shadow-sm cursor-pointer active:scale-95 shrink-0"
+                            >
+                              <span>{language === 'ID' ? 'Buka Kasir →' : 'Open Register →'}</span>
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
