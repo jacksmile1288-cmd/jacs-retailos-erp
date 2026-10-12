@@ -284,23 +284,11 @@ const ROLE_MODULES: RoleModuleData[] = [
 ];
 
 export const HomeModule: React.FC = () => {
-  const { theme, language, activeNeonCards, setActiveNeonCard, setActiveNav, businessProfile } = useApp();
+  const { theme, language, activeNeonCards, setActiveNeonCard, setActiveNav } = useApp();
   const [hoveredRoleId, setHoveredRoleId] = useState<string | null>(null);
 
   const isLight = theme === 'light';
   const isEn = language === 'en';
-
-  const companyName =
-    (businessProfile as any)?.companyName?.trim() ||
-    businessProfile?.name?.trim() ||
-    'KHANSA SWALAYAN';
-  const companyAddress =
-    businessProfile?.address?.trim() ||
-    'Jl. Operasional Ritel No. 1, Makassar';
-  const logoSource =
-    businessProfile?.logoUrl ||
-    '/LOGO-removebg-preview.png' ||
-    '/logo.png';
 
   // Active role selected for interactive neon glow & detail modal dialog (persisted across modules)
   const activeRoleId = activeNeonCards['home'] || 'executive';
@@ -322,7 +310,7 @@ export const HomeModule: React.FC = () => {
 
   return (
     <div id="home-module-container" className="w-full max-w-[1360px] mx-auto flex flex-col space-y-4 xl:space-y-5">
-      {/* 1. MINIMALIST CLEAN HEADER WITH BUSINESS IDENTITY */}
+      {/* 1. MINIMALIST CLEAN HEADER */}
       <div
         className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 transition duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 ${
           isLight
@@ -330,61 +318,28 @@ export const HomeModule: React.FC = () => {
             : 'bg-[#161b22] border-[#30363d]'
         }`}
       >
-        <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-          <img
-            src={logoSource}
-            alt={companyName}
-            onError={(e) => {
-              const target = e.currentTarget;
-              if (target.src.includes('LOGO-removebg-preview.png')) {
-                target.src = '/logo.png';
-              } else if (target.src.includes('logo.png') && businessProfile?.logoUrl) {
-                target.src = businessProfile.logoUrl;
-              }
-            }}
-            className="w-12 h-12 object-contain rounded-xl p-1 bg-slate-800/40 border border-slate-700/50 shrink-0 shadow-sm"
-          />
-
-          <div className="space-y-0.5 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0052FF]/15 border border-[#0052FF]/40 text-[#58a6ff] text-[10px] xl:text-[11px] font-semibold">
-                <Sparkles className="w-3.5 h-3.5 text-[#00f2fe]" />
-                <span>
-                  {isEn
-                    ? '6 Core Operational Divisions'
-                    : '6 Divisi Operasional Terpadu'}
-                </span>
-              </div>
-              {businessProfile?.category && (
-                <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                    isLight
-                      ? 'bg-slate-100 text-slate-600 border-slate-200'
-                      : 'bg-slate-800/80 text-gray-300 border-slate-700'
-                  }`}
-                >
-                  {businessProfile.category}
-                </span>
-              )}
-            </div>
-
-            <h1
-              className={`font-bold text-2xl tracking-tight ${
-                isLight ? 'text-slate-900' : 'text-white'
-              }`}
-              style={{ fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif" }}
-            >
-              {companyName}
-            </h1>
-
-            <p
-              className={`text-xs font-normal mt-0.5 ${
-                isLight ? 'text-slate-600' : 'text-slate-300'
-              }`}
-            >
-              {companyAddress}
-            </p>
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#0052FF]/15 border border-[#0052FF]/40 text-[#58a6ff] text-[10px] xl:text-[11px] font-semibold">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>
+              {isEn
+                ? '6 Core Operational Divisions'
+                : '6 Divisi Operasional Terpadu'}
+            </span>
           </div>
+          <h1
+            className={`text-lg sm:text-xl xl:text-2xl font-semibold tracking-tight ${
+              isLight ? 'text-slate-900' : 'text-[#e6edf3]'
+            }`}
+            style={{ fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif" }}
+          >
+            Operational Hub
+          </h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {isEn
+              ? 'Operational Control & Navigation Hub'
+              : 'Pusat Kendali & Navigasi Modul Operasional'}
+          </p>
         </div>
       </div>
 
