@@ -51,6 +51,7 @@ import {
   JournalEntryLine,
   BusinessEntityProfile,
   MigrationBatchRecord,
+  ContextualProfile,
 } from '../types';
 import {
   INITIAL_PRODUCTS,
@@ -111,9 +112,13 @@ interface AppContextType {
   journalEntries: JournalEntry[];
   setJournalEntries: React.Dispatch<React.SetStateAction<JournalEntry[]>>;
   users: User[];
+  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   purchasing: PurchaseOrder[];
   purchaseRequests: PurchaseRequest[];
+  setPurchaseRequests: React.Dispatch<React.SetStateAction<PurchaseRequest[]>>;
   createPurchaseRequest: (pr: Omit<PurchaseRequest, 'pr_number' | 'status'>) => void;
+  approvePurchaseRequest: (prNumberOrId: string) => void;
+  rejectPurchaseRequest: (prNumberOrId: string, reason?: string) => void;
   approvalQueue: ApprovalItem[];
   approveItem: (id: string) => void;
   rejectItem: (id: string) => void;
@@ -145,8 +150,11 @@ interface AppContextType {
   updateTerminal: (terminalId: string, updates: Partial<Terminal>) => void;
   toggleTerminalLock: (terminalId: string, forceState?: boolean) => void;
   setAllTerminalsLock: (locked: boolean) => void;
-  activeUser: User;
-  setActiveUser: (u: User) => void;
+  activeUser: User | null;
+  currentUser: User | null;
+  setActiveUser: (u: User | null) => void;
+  setCurrentUser: (u: User | null) => void;
+  contextualProfile: ContextualProfile;
   // Master Data
   brands: BrandMaster[];
   setBrands: React.Dispatch<React.SetStateAction<BrandMaster[]>>;
@@ -165,11 +173,27 @@ interface AppContextType {
   updateDeveloperPassword: (newPw: string) => void;
   isSuperAdminAuthenticated: boolean;
   setIsSuperAdminAuthenticated: (auth: boolean) => void;
+  superAdminTab: string;
+  setSuperAdminTab: (tab: string) => void;
   updateUserPin: (userId: string, newPin: string) => void;
+  resetAllUserPinsToDefault: (defaultPin?: string) => void;
+  refreshSystemState: () => void;
   emergencySessionReset: () => void;
+  exitSuperAdminSession: () => void;
+  logout: () => void;
   clearAllCacheAndRepair: () => { repairedItemsCount: number; message: string };
   repairStockLedger: () => { repairedCount: number; mutationsSynced: number; message: string };
   resetDemoSalesAndRestock: () => { success: boolean; message: string };
+  // Independent Module Locking & Security (master_data, executive, hr, finance, purchasing, warehouse, super_admin)
+  unlockedModules: Record<string, boolean>;
+  isModuleUnlocked: (moduleId: string) => boolean;
+  unlockModule: (moduleId: string) => void;
+  lockModule: (moduleId: string) => void;
+  lockAllModules: () => void;
+  verifyModulePassword: (moduleId: string, inputCode: string) => { success: boolean; user?: User; error?: string };
+  moduleCustomPins: Record<string, string>;
+  getModulePin: (moduleId: string) => string;
+  updateModulePin: (moduleId: string, oldPin: string, newPin: string) => { success: boolean; error?: string };
   // Business Entity Profile & Onboarding
   businessProfile: BusinessEntityProfile;
   updateBusinessProfile: (profile: Partial<BusinessEntityProfile>) => void;
@@ -190,7 +214,7 @@ interface AppContextType {
   isPinModalOpen: boolean;
   openPinAuth: (onSuccess?: (user: User) => void) => void;
   closePinAuth: () => void;
-  verifyPin: (pin: string) => { success: boolean; user?: User; error?: string };
+  verifyPin: (pin: string, targetUserId?: string) => { success: boolean; user?: User; error?: string };
   
   // Actions
   addProduct: (product: Omit<Product, 'id'>) => void;
@@ -659,7 +683,8 @@ export const isCashierEmployee = (
     dept.includes('pos');
   if (isPosRole) return true;
 
-  const empId = ('id' in emp ? emp.id : emp.user_id).toLowerCase();
+  const rawId = 'id' in emp && emp.id ? emp.id : ('user_id' in emp ? emp.user_id : '');
+  const empId = (rawId || '').toLowerCase();
   const empName = emp.name.toLowerCase().trim();
 
   // Cek apakah staf ini adalah activeUser yang sedang/pernah mengoperasikan kasir POS
@@ -835,7 +860,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('jacs_erp_language', lang);
   };
 
-  const [activeNav, setActiveNav] = useState<ActiveNavModule>('home');
+  const [activeNav, setActiveNavState] = useState<ActiveNavModule>('home');
+
+  const setActiveNav = (nav: ActiveNavModule) => {
+    setActiveNavState(nav);
+    localStorage.setItem('jacs_erp_active_nav', nav);
+  };
 
   // Load from localStorage or canonical seed (including F&B items & Raw Ingredients for BOM)
   const [products, setProducts] = useState<Product[]>(() => {
@@ -937,7 +967,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('jacs_erp_users');
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
+    let loaded: User[] = saved ? JSON.parse(saved) : INITIAL_USERS;
+    loaded = loaded.map((u) => {
+      const match = INITIAL_USERS.find((iu) => iu.user_id === u.user_id || iu.name === u.name);
+      if (match) {
+        return {
+          ...u,
+          name: match.name,
+          pin: match.pin,
+          division: match.division || u.division,
+          role: match.role || u.role,
+          avatar: match.avatar,
+          avatarUrl: match.avatarUrl,
+        };
+      }
+      return u;
+    });
+    for (const initUser of INITIAL_USERS) {
+      if (!loaded.some((u) => u.user_id === initUser.user_id)) {
+        loaded.push(initUser);
+      }
+    }
+    return loaded;
   });
 
   const [purchasing, setPurchasing] = useState<PurchaseOrder[]>(() => {
@@ -1139,26 +1190,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [terminals, setTerminals] = useState<Terminal[]>(() => {
+    const savedState = localStorage.getItem('jacs_pos_terminals_state');
+    const isGloballyLocked = savedState !== null ? savedState === 'true' : null;
+
     const saved = localStorage.getItem('jacs_erp_terminals');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length >= 10) {
+        if (Array.isArray(parsed) && parsed.length >= 8) {
           return parsed.map((t: Terminal) => {
             const initMatch = INITIAL_TERMINALS.find((it) => it.id === t.id);
-            const isUnlockedSpecial = t.id === 'T-07' || t.id === 'T-08';
             return {
               ...t,
               businessModel: initMatch?.businessModel || t.businessModel,
               location: initMatch?.location || t.location,
               subLabel: 'Data Master',
-              isLocked: isUnlockedSpecial ? false : t.isLocked,
+              isLocked: isGloballyLocked !== null ? isGloballyLocked : Boolean(t.isLocked),
             };
           });
         }
       } catch {
         // fallback
       }
+    }
+    if (isGloballyLocked !== null) {
+      return INITIAL_TERMINALS.map((t) => ({ ...t, isLocked: isGloballyLocked }));
     }
     return INITIAL_TERMINALS;
   });
@@ -1169,11 +1225,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return match || INITIAL_TERMINALS[0];
   });
 
-  const [activeUser, setActiveUserState] = useState<User>(() => {
-    const savedId = localStorage.getItem('jacs_erp_active_user_id');
-    const match = savedId ? INITIAL_USERS.find((u) => u.user_id === savedId) : null;
-    return match || INITIAL_USERS[2]; // Default to Andi Pratama (Kasir 01)
-  });
+  const [activeUser, setActiveUserState] = useState<User | null>(null);
+
+  // Safe fallback identity for internal transactions & background audit logs when no user is logged in
+  const safeOperator: User = activeUser || {
+    user_id: 'USR-GUEST',
+    name: 'Petugas / Kasir',
+    email: 'guest@retailos.id',
+    role: 'Kasir',
+    status: 'Active',
+    pin: '',
+  };
 
   // Persistent active neon cards across all modules
   const [activeNeonCards, setActiveNeonCardsState] = useState<Record<string, string>>(() => {
@@ -1218,13 +1280,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!saved) return INITIAL_APPROVALS;
     try {
       const parsed: ApprovalItem[] = JSON.parse(saved);
-      // Migrate all pending approval items to APPROVED by default
-      return parsed.map((item) => {
-        if (item.status === 'PENDING' || (item.status as string) === 'PENDING_APPROVAL') {
-          return { ...item, status: 'APPROVED' as const };
-        }
-        return item;
-      });
+      return parsed;
     } catch {
       return INITIAL_APPROVALS;
     }
@@ -1638,9 +1694,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed.map((emp: Employee) => {
-            const initial = INITIAL_EMPLOYEES.find((ie) => ie.id === emp.id || ie.nip === emp.nip);
+            const initial = INITIAL_EMPLOYEES.find((ie) => ie.id === emp.id || ie.nip === emp.nip || ie.name === emp.name);
             return {
               ...emp,
+              division: emp.division || initial?.division || 'POS & Kasir',
+              role: emp.role || initial?.role || 'Kasir',
+              pin: emp.pin || initial?.pin || '1111',
+              avatarUrl: emp.avatarUrl !== undefined ? emp.avatarUrl : (initial?.avatarUrl ?? null),
               baseSalary: emp.baseSalary ?? initial?.baseSalary ?? 5000000,
               bpjsEnabled: emp.bpjsEnabled !== undefined ? emp.bpjsEnabled : (initial?.bpjsEnabled ?? true),
             };
@@ -1708,9 +1768,268 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Super Admin security & dev console
   const [developerPassword, setDeveloperPasswordState] = useState<string>(() => {
-    return localStorage.getItem('jacs_erp_dev_password') || 'Admin123';
+    return (
+      localStorage.getItem('jacs_super_admin_password') ||
+      localStorage.getItem('jacs_erp_dev_password') ||
+      'Admin123'
+    );
   });
-  const [isSuperAdminAuthenticated, setIsSuperAdminAuthenticated] = useState<boolean>(false);
+  const [isSuperAdminAuthenticated, setIsSuperAdminAuthenticated] = useState<boolean>(() => {
+    // Nonaktifkan elevated privilege Super Admin secara default (false) saat pertama kali dimuat / refresh
+    return false;
+  });
+
+  const [superAdminTab, setSuperAdminTabState] = useState<string>(() => {
+    return localStorage.getItem('jacs_super_admin_tab') || 'system';
+  });
+
+  const setSuperAdminTab = (tab: string) => {
+    setSuperAdminTabState(tab);
+    localStorage.setItem('jacs_super_admin_tab', tab);
+  };
+
+  const setIsSuperAdminAuthenticatedPersisted = (auth: boolean) => {
+    setIsSuperAdminAuthenticated(auth);
+    localStorage.setItem('jacs_super_admin_authenticated', auth ? 'true' : 'false');
+  };
+
+  // Independent module lock state (master_data, executive, hr, finance, purchasing, warehouse, super_admin)
+  // Wajib selalu terkunci saat aplikasi dimuat awal (tidak disimpan permanen di localStorage)
+  const [unlockedModules, setUnlockedModules] = useState<Record<string, boolean>>(() => {
+    try {
+      localStorage.removeItem('jacs_unlocked_modules');
+      localStorage.removeItem('jacs_super_admin_authenticated');
+    } catch (e) {
+      console.error(e);
+    }
+    return {};
+  });
+
+  // Module-specific PINs (stored per module, default '1234')
+  const [moduleCustomPins, setModuleCustomPins] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem('jacs_module_custom_pins');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const normalizeModuleKey = (modId: string): string => {
+    if (!modId) return '';
+    const clean = modId.trim().toLowerCase();
+    if (clean === 'master_data' || clean === 'master-data') return 'master-data';
+    if (clean === 'super_admin' || clean === 'admin') return 'admin';
+    return clean;
+  };
+
+  const getModulePin = (moduleId: string): string => {
+    const key = normalizeModuleKey(moduleId);
+    if (!key) return '1234';
+    return moduleCustomPins[key] || '1234';
+  };
+
+  const updateModulePin = (moduleId: string, oldPin: string, newPin: string): { success: boolean; error?: string } => {
+    const key = normalizeModuleKey(moduleId);
+    if (!key) return { success: false, error: 'Modul tidak valid' };
+
+    const currentPin = getModulePin(key);
+    const superAdminUser = users.find((u) => u.role === 'Super Admin') || users.find((u) => u.id === 'USR-001');
+
+    // Allow oldPin if matches current module pin, default '1234', master password, or superadmin pin
+    const isOldPinValid =
+      oldPin === currentPin ||
+      oldPin === '1234' ||
+      oldPin === developerPassword ||
+      oldPin === 'Admin123' ||
+      (superAdminUser && superAdminUser.pin === oldPin);
+
+    if (!isOldPinValid) {
+      return { success: false, error: 'PIN lama tidak sesuai!' };
+    }
+
+    const trimmedNewPin = newPin.trim();
+    if (!trimmedNewPin || trimmedNewPin.length !== 4 || !/^\d{4}$/.test(trimmedNewPin)) {
+      return { success: false, error: 'PIN baru harus tepat 4 digit angka (contoh: 5678)!' };
+    }
+
+    if (trimmedNewPin === currentPin) {
+      return { success: false, error: 'PIN baru tidak boleh sama dengan PIN saat ini!' };
+    }
+
+    const nextPins = { ...moduleCustomPins, [key]: trimmedNewPin };
+    setModuleCustomPins(nextPins);
+    try {
+      localStorage.setItem('jacs_module_custom_pins', JSON.stringify(nextPins));
+      localStorage.setItem(`jacs_module_pin_${key}`, trimmedNewPin);
+    } catch (e) {
+      console.error(e);
+    }
+
+    // Sync corresponding division user's pin if applicable
+    if (key === 'executive') {
+      setUsers((prev) => prev.map((u) => (u.role === 'Manager' ? { ...u, pin: trimmedNewPin } : u)));
+    } else if (key === 'hr') {
+      setUsers((prev) => prev.map((u) => (u.role === 'HR Staff' ? { ...u, pin: trimmedNewPin } : u)));
+    } else if (key === 'finance') {
+      setUsers((prev) => prev.map((u) => (u.role === 'Finance Staff' ? { ...u, pin: trimmedNewPin } : u)));
+    } else if (key === 'purchasing') {
+      setUsers((prev) => prev.map((u) => (u.role === 'Purchasing Staff' ? { ...u, pin: trimmedNewPin } : u)));
+    } else if (key === 'warehouse' || key === 'master-data') {
+      setUsers((prev) => prev.map((u) => (u.role === 'Inventory Staff' ? { ...u, pin: trimmedNewPin } : u)));
+    } else if (key === 'admin') {
+      setUsers((prev) => prev.map((u) => (u.role === 'Super Admin' ? { ...u, pin: trimmedNewPin } : u)));
+    }
+
+    addAuditLog(`PIN Modul [${key.toUpperCase()}] berhasil diubah ke ${trimmedNewPin}`, 'SECURITY', 'INFO');
+    showToast(`✅ PIN Modul ${key.toUpperCase()} berhasil diperbarui!`);
+    return { success: true };
+  };
+
+  const isModuleUnlocked = (moduleId: string): boolean => {
+    const key = normalizeModuleKey(moduleId);
+    if (!key || key === 'home' || key === 'dashboard' || key === 'pos') return true;
+    if (key === 'admin') return Boolean(isSuperAdminAuthenticated || unlockedModules['admin']);
+    return Boolean(unlockedModules[key]);
+  };
+
+  const unlockModule = (moduleId: string) => {
+    const key = normalizeModuleKey(moduleId);
+    if (!key) return;
+    setUnlockedModules((prev) => ({ ...prev, [key]: true }));
+    if (key === 'admin') {
+      setIsSuperAdminAuthenticated(true);
+    }
+  };
+
+  const lockModule = (moduleId: string) => {
+    const key = normalizeModuleKey(moduleId);
+    if (!key) return;
+    setUnlockedModules((prev) => ({ ...prev, [key]: false }));
+    if (key === 'admin') {
+      setIsSuperAdminAuthenticated(false);
+    }
+  };
+
+  const lockAllModules = () => {
+    setUnlockedModules({});
+    setIsSuperAdminAuthenticated(false);
+  };
+
+  const verifyModulePassword = (moduleId: string, inputCode: string): { success: boolean; user?: User; error?: string } => {
+    const key = normalizeModuleKey(moduleId);
+    const trimmed = inputCode.trim();
+    if (!trimmed) {
+      return { success: false, error: 'Masukkan sandi atau PIN modul!' };
+    }
+
+    const activePin = getModulePin(key);
+
+    // 1. Super Admin ('admin')
+    if (key === 'admin') {
+      const isMasterPass = trimmed === developerPassword || trimmed === 'Admin123';
+      const superAdminUser = users.find((u) => u.role === 'Super Admin') || users.find((u) => u.id === 'USR-001');
+      const isSuperAdminPin = trimmed === activePin || trimmed === '1234' || trimmed === '8888' || (superAdminUser && superAdminUser.pin === trimmed);
+
+      if (isMasterPass || isSuperAdminPin) {
+        return { success: true, user: superAdminUser };
+      }
+      return {
+        success: false,
+        error: `Sandi/PIN Super Admin salah! Masukkan PIN aktif (${activePin}) atau Sandi Master (Admin123).`,
+      };
+    }
+
+    // 2. Executive & Managerial ('executive')
+    if (key === 'executive') {
+      const managerUser = users.find((u) => u.role === 'Manager') || users.find((u) => u.id === 'USR-002');
+      const isPinValid = trimmed === activePin || trimmed === '1234' || (managerUser && managerUser.pin === trimmed);
+
+      if (isPinValid) {
+        return { success: true, user: managerUser };
+      }
+      return {
+        success: false,
+        error: `PIN Eksekutif & Manajerial salah! Masukkan PIN aktif (${activePin}).`,
+      };
+    }
+
+    // 3. Human Resources ('hr')
+    if (key === 'hr') {
+      const hrUser = users.find((u) => u.role === 'HR Staff') || users.find((u) => u.id === 'USR-013');
+      const isPinValid = trimmed === activePin || trimmed === '1234' || trimmed === '5555' || (hrUser && hrUser.pin === trimmed);
+
+      if (isPinValid) {
+        return { success: true, user: hrUser };
+      }
+      return {
+        success: false,
+        error: `PIN SDM & Personalia salah! Masukkan PIN aktif (${activePin}).`,
+      };
+    }
+
+    // 4. Finance & Accounting ('finance')
+    if (key === 'finance') {
+      const finUser = users.find((u) => u.role === 'Finance Staff') || users.find((u) => u.id === 'USR-012');
+      const isPinValid = trimmed === activePin || trimmed === '1234' || trimmed === '4444' || (finUser && finUser.pin === trimmed);
+
+      if (isPinValid) {
+        return { success: true, user: finUser };
+      }
+      return {
+        success: false,
+        error: `PIN Keuangan & Akuntansi salah! Masukkan PIN aktif (${activePin}).`,
+      };
+    }
+
+    // 5. Purchasing ('purchasing')
+    if (key === 'purchasing') {
+      const purchUser = users.find((u) => u.role === 'Purchasing Staff') || users.find((u) => u.id === 'USR-014');
+      const isPinValid = trimmed === activePin || trimmed === '1234' || trimmed === '6666' || (purchUser && purchUser.pin === trimmed);
+
+      if (isPinValid) {
+        return { success: true, user: purchUser };
+      }
+      return {
+        success: false,
+        error: `PIN Pengadaan & Pembelian salah! Masukkan PIN aktif (${activePin}).`,
+      };
+    }
+
+    // 6. Warehouse & Inventory ('warehouse')
+    if (key === 'warehouse') {
+      const whUser = users.find((u) => u.role === 'Inventory Staff' && u.name.includes('Hendra')) || users.find((u) => u.id === 'USR-005');
+      const isPinValid = trimmed === activePin || trimmed === '1234' || trimmed === '8880' || (whUser && whUser.pin === trimmed);
+
+      if (isPinValid) {
+        return { success: true, user: whUser };
+      }
+      return {
+        success: false,
+        error: `PIN Gudang & Inventori salah! Masukkan PIN aktif (${activePin}).`,
+      };
+    }
+
+    // 7. Master Data ('master-data')
+    if (key === 'master-data') {
+      const mdUser = users.find((u) => u.id === 'USR-005') || users.find((u) => u.name.includes('Hendra'));
+      const isPinValid = trimmed === activePin || trimmed === '1234' || trimmed === '8880' || (mdUser && mdUser.pin === trimmed);
+
+      if (isPinValid) {
+        return { success: true, user: mdUser };
+      }
+      return {
+        success: false,
+        error: `PIN Master Data salah! Masukkan PIN aktif (${activePin}).`,
+      };
+    }
+
+    if (trimmed === activePin) {
+      return { success: true };
+    }
+
+    return { success: true };
+  };
 
   // Business Entity Profile & Onboarding
   const [businessProfile, setBusinessProfile] = useState<BusinessEntityProfile>(() => {
@@ -1824,6 +2143,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('jacs_erp_sheet_config', JSON.stringify(sheetConfig));
   }, [sheetConfig]);
 
+  useEffect(() => {
+    localStorage.setItem('jacs_erp_purchase_requests', JSON.stringify(purchaseRequests));
+  }, [purchaseRequests]);
+
+  useEffect(() => {
+    localStorage.setItem('jacs_erp_approval_queue', JSON.stringify(approvalQueue));
+  }, [approvalQueue]);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -1896,17 +2223,102 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const setAllTerminalsLock = useCallback((locked: boolean) => {
-    setTerminals((prev) => prev.map((t) => ({ ...t, isLocked: locked })));
+    try {
+      localStorage.setItem('jacs_pos_terminals_state', locked ? 'true' : 'false');
+    } catch (e) {
+      console.error(e);
+    }
+    setTerminals((prev) => {
+      const updated = prev.map((t) => ({ ...t, isLocked: locked }));
+      try {
+        localStorage.setItem('jacs_erp_terminals', JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
     setActiveTerminalState((prev) => ({ ...prev, isLocked: locked }));
     addAuditLog(`Seluruh terminal kasir di-${locked ? 'kunci' : 'buka'} oleh Super Admin`, 'POS', 'WARN');
-    showToast(locked ? 'Mode Kunci Semua Kasir AKTIF' : 'Semua Terminal Kasir Berhasil DIBUKA');
+    showToast(locked ? 'Semua register kasir berhasil dikunci serentak' : 'Semua register kasir berhasil dibuka serentak');
+  }, []);
+
+  const refreshSystemState = useCallback(() => {
+    // 1. Reload terminals from localStorage
+    const savedState = localStorage.getItem('jacs_pos_terminals_state');
+    const isGloballyLocked = savedState !== null ? savedState === 'true' : null;
+
+    const savedTerminals = localStorage.getItem('jacs_erp_terminals');
+    if (savedTerminals) {
+      try {
+        const parsed = JSON.parse(savedTerminals);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTerminals(parsed.map((t: Terminal) => ({
+            ...t,
+            isLocked: isGloballyLocked !== null ? isGloballyLocked : Boolean(t.isLocked),
+          })));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    } else if (isGloballyLocked !== null) {
+      setTerminals((prev) => prev.map((t) => ({ ...t, isLocked: isGloballyLocked })));
+    }
+
+    // 2. Reload users
+    const savedUsers = localStorage.getItem('jacs_erp_users');
+    if (savedUsers) {
+      try {
+        const parsed = JSON.parse(savedUsers);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setUsers(parsed);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // 3. Reload products
+    const savedProducts = localStorage.getItem('jacs_erp_products');
+    if (savedProducts) {
+      try {
+        const parsed = JSON.parse(savedProducts);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProducts(parsed);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // 4. Reload master developer password
+    const savedPass = localStorage.getItem('jacs_super_admin_password') || localStorage.getItem('jacs_erp_dev_password');
+    if (savedPass) {
+      setDeveloperPasswordState(savedPass);
+    }
+
+    addAuditLog('Penyegaran data sistem dan sinkronisasi status terminal berhasil dilakukan', 'SYSTEM', 'INFO');
   }, []);
 
   const updateDeveloperPassword = (newPw: string) => {
     setDeveloperPasswordState(newPw);
+    localStorage.setItem('jacs_super_admin_password', newPw);
     localStorage.setItem('jacs_erp_dev_password', newPw);
-    addAuditLog('Kata sandi pengembang Developer Console diperbarui', 'SECURITY', 'WARN');
-    showToast('Password Super Admin berhasil diperbarui!');
+    addAuditLog('Kata sandi master Super Admin diperbarui', 'SECURITY', 'WARN');
+    showToast('Sandi Master Super Admin berhasil diperbarui!');
+  };
+
+  const resetAllUserPinsToDefault = (defaultPin = '1234') => {
+    setUsers((prev) =>
+      prev.map((u) => ({ ...u, pin: defaultPin }))
+    );
+    setModuleCustomPins({});
+    try {
+      localStorage.removeItem('jacs_module_custom_pins');
+    } catch (e) {
+      console.error(e);
+    }
+    addAuditLog(`Semua PIN modul & staf di-reset ke default (${defaultPin})`, 'SECURITY', 'WARN');
+    showToast(`Semua PIN modul & staf berhasil di-reset ke default (${defaultPin})!`);
   };
 
   const updateUserPin = (userId: string, newPin: string) => {
@@ -1926,6 +2338,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     addAuditLog('EMERGENCY SESSION RESET dieksekusi dari jarak jauh', 'REMOTE_CONTROL', 'WARN');
     showToast('Seluruh sesi login kasir & dev console berhasil di-reset ke status aman!');
+  };
+
+  const exitSuperAdminSession = () => {
+    // 1. Reset elevated Super Admin status
+    setIsSuperAdminAuthenticated(false);
+    lockModule('admin');
+    localStorage.removeItem('jacs_super_admin_authenticated');
+    localStorage.setItem('jacs_super_admin_authenticated', 'false');
+    sessionStorage.removeItem('jacs_super_admin_authenticated');
+
+    // 2. Reset currentUser & activeUser kembali ke null (Belum ada yang login)
+    setActiveUserState(null);
+    localStorage.removeItem('jacs_erp_active_user_id');
+
+    // 3. Arahkan routing tampilan langsung ke halaman 'HOME'
+    setActiveNavState('home');
+    localStorage.setItem('jacs_erp_active_nav', 'home');
+
+    // 4. Catat Audit Log dan beri notifikasi toast
+    addAuditLog('Hak akses & sesi Super Admin ditutup. Navigasi kembali ke HOME.', 'SECURITY', 'INFO');
+    showToast('🔒 Sesi Super Admin berhasil dikunci. Anda telah keluar (HOME).');
+  };
+
+  const logout = () => {
+    exitSuperAdminSession();
   };
 
   const updateBusinessProfile = (profile: Partial<BusinessEntityProfile>) => {
@@ -2143,11 +2580,259 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
-  const setActiveUser = (u: User) => {
+  const setActiveUser = (u: User | null) => {
     setActiveUserState(u);
-    localStorage.setItem('jacs_erp_active_user_id', u.user_id);
-    showToast(`Operator aktif: ${u.name} (${u.role})`);
+    if (u) {
+      localStorage.setItem('jacs_erp_active_user_id', u.user_id);
+      showToast(`Pengguna aktif: ${u.name} (${u.role})`);
+    } else {
+      localStorage.removeItem('jacs_erp_active_user_id');
+    }
   };
+
+  const setCurrentUser = (u: User | null) => {
+    setActiveUser(u);
+  };
+
+  // Contextual Profile: Otomatis menyesuaikan menu navigasi yang sedang dibuka (100% activeNav & activeTerminal)
+  const contextualProfile = useMemo<ContextualProfile>(() => {
+    // 1. Menu HOME: Tampilkan nama modul "HOME", sub-label "Mode Umum", avatar siluet default
+    if (activeNav === 'home') {
+      return {
+        isGeneral: true,
+        moduleTitle: 'HOME',
+        subLabel: 'Mode Umum',
+        userName: 'HOME',
+        position: 'Mode Umum',
+        employeeId: 'UMUM',
+        email: 'umum@jacs.retailos.id',
+        avatarUrl: null,
+      };
+    }
+
+    // 2. Menu DASHBOARD: Tampilkan nama modul "DASHBOARD", sub-label "Mode Umum", avatar siluet default
+    if (activeNav === 'dashboard') {
+      return {
+        isGeneral: true,
+        moduleTitle: 'DASHBOARD',
+        subLabel: 'Mode Umum',
+        userName: 'DASHBOARD',
+        position: 'Mode Umum',
+        employeeId: 'UMUM',
+        email: 'dashboard@jacs.retailos.id',
+        avatarUrl: null,
+      };
+    }
+
+    // 3. Menu POS & Kasir:
+    // Jika kasir aktif (di dalam terminal Kasir 01 s/d Kasir 04) -> profil pemegang kasir
+    // Jika di daftar terminal atau belum login kasir -> "POS & CASHIER", sub-label "Mode Umum", avatar siluet default
+    if (activeNav === 'pos') {
+      if (isCashierWorkspaceActive && activeTerminal) {
+        const termCode = (activeTerminal?.code || '').toUpperCase();
+        const termName = (activeTerminal?.name || '').toUpperCase();
+        const termId = (activeTerminal?.id || '').toUpperCase();
+
+        if (termName.includes('01') || termCode.includes('01') || termId === 'T-01') {
+          const matched = users.find((u) => u.name === 'Andi Pratama') || employees.find((e) => e.name === 'Andi Pratama');
+          const effectiveUser = activeUser?.name === 'Andi Pratama' ? activeUser : (activeUser?.role === 'Kasir' ? activeUser : matched);
+          return {
+            isGeneral: false,
+            moduleTitle: 'KASIR 01',
+            subLabel: 'Kasir 01 (POS & Kasir)',
+            userName: effectiveUser?.name || 'Andi Pratama',
+            position: 'Kasir 01',
+            employeeId: effectiveUser?.id || (effectiveUser as any)?.user_id || 'USR-003',
+            email: effectiveUser?.email || 'andi.pos01@jacs-erp.com',
+            avatarUrl: effectiveUser?.avatarUrl || effectiveUser?.avatar || null,
+          };
+        }
+        if (termName.includes('02') || termCode.includes('02') || termId === 'T-02') {
+          const matched = users.find((u) => u.name === 'Maya Indah') || employees.find((e) => e.name === 'Maya Indah');
+          const effectiveUser = activeUser?.name === 'Maya Indah' ? activeUser : (activeUser?.role === 'Kasir' ? activeUser : matched);
+          return {
+            isGeneral: false,
+            moduleTitle: 'KASIR 02',
+            subLabel: 'Kasir 02 (POS & Kasir)',
+            userName: effectiveUser?.name || 'Maya Indah',
+            position: 'Kasir 02',
+            employeeId: effectiveUser?.id || (effectiveUser as any)?.user_id || 'USR-004',
+            email: effectiveUser?.email || 'maya.pos02@jacs-erp.com',
+            avatarUrl: effectiveUser?.avatarUrl || effectiveUser?.avatar || null,
+          };
+        }
+        if (termName.includes('03') || termCode.includes('03') || termId === 'T-03') {
+          const matched = users.find((u) => u.name === 'Rian Hidayat') || employees.find((e) => e.name === 'Rian Hidayat');
+          const effectiveUser = activeUser?.name === 'Rian Hidayat' ? activeUser : (activeUser?.role === 'Kasir' ? activeUser : matched);
+          return {
+            isGeneral: false,
+            moduleTitle: 'KASIR 03',
+            subLabel: 'Kasir 03 (POS & Kasir)',
+            userName: effectiveUser?.name || 'Rian Hidayat',
+            position: 'Kasir 03',
+            employeeId: effectiveUser?.id || (effectiveUser as any)?.user_id || 'USR-006',
+            email: effectiveUser?.email || 'rian.pos03@jacs-erp.com',
+            avatarUrl: effectiveUser?.avatarUrl || effectiveUser?.avatar || null,
+          };
+        }
+        if (termName.includes('04') || termCode.includes('04') || termId === 'T-04') {
+          const matched = users.find((u) => u.name === 'Siti Aminah') || employees.find((e) => e.name === 'Siti Aminah');
+          const effectiveUser = activeUser?.name === 'Siti Aminah' ? activeUser : (activeUser?.role === 'Kasir' ? activeUser : matched);
+          return {
+            isGeneral: false,
+            moduleTitle: 'KASIR 04',
+            subLabel: 'Kasir 04 (POS & Kasir)',
+            userName: effectiveUser?.name || 'Siti Aminah',
+            position: 'Kasir 04',
+            employeeId: effectiveUser?.id || (effectiveUser as any)?.user_id || 'USR-007',
+            email: effectiveUser?.email || 'siti.pos04@jacs-erp.com',
+            avatarUrl: effectiveUser?.avatarUrl || effectiveUser?.avatar || null,
+          };
+        }
+
+        // Terminal Kasir lainnya
+        return {
+          isGeneral: false,
+          moduleTitle: activeTerminal?.name || 'KASIR POS',
+          subLabel: `${activeTerminal?.name || 'Kasir'} (POS & Kasir)`,
+          userName: activeUser?.name || 'Petugas Kasir',
+          position: `Kasir (${activeTerminal?.name || 'POS'})`,
+          employeeId: activeUser?.id || (activeUser as any)?.user_id || 'POS-OP',
+          email: activeUser?.email || 'kasir@jacs.retailos.id',
+          avatarUrl: activeUser?.avatarUrl || activeUser?.avatar || null,
+        };
+      }
+
+      // Daftar terminal kasir / belum memilih terminal / kasir logout -> POS & CASHIER (TERMINAL)
+      return {
+        isGeneral: true,
+        moduleTitle: 'POS & CASHIER (TERMINAL)',
+        subLabel: 'Mode Umum',
+        userName: 'POS & CASHIER (TERMINAL)',
+        position: 'POS & CASHIER (TERMINAL)',
+        employeeId: 'UMUM',
+        email: 'pos@jacs.retailos.id',
+        avatarUrl: null,
+      };
+    }
+
+    // 4. Modul Super Admin ('admin' atau 'super_admin')
+    if (activeNav === 'admin' || (activeNav as string) === 'super_admin') {
+      const matched = users.find((u) => u.role === 'Super Admin') || employees.find((e) => e.role === 'Super Admin');
+      return {
+        isGeneral: false,
+        moduleTitle: 'SUPER ADMIN',
+        subLabel: 'Super Admin',
+        userName: matched?.name || 'Budi Santoso',
+        position: 'Super Admin',
+        employeeId: matched?.id || (matched as any)?.user_id || 'USR-001',
+        email: matched?.email || 'budi.admin@jacs-erp.com',
+        avatarUrl: matched?.avatarUrl || matched?.avatar || null,
+      };
+    }
+
+    // 5. Modul Executive ('executive')
+    if (activeNav === 'executive') {
+      const matched = users.find((u) => u.role === 'Manager') || employees.find((e) => e.role === 'Manager');
+      return {
+        isGeneral: false,
+        moduleTitle: 'EXECUTIVE',
+        subLabel: 'Executive Manager',
+        userName: matched?.name || 'Siti Rahmawati',
+        position: 'Executive Manager',
+        employeeId: matched?.id || (matched as any)?.user_id || 'USR-002',
+        email: matched?.email || 'siti.manager@jacs-erp.com',
+        avatarUrl: matched?.avatarUrl || matched?.avatar || null,
+      };
+    }
+
+    // 6. Modul HR ('hr')
+    if (activeNav === 'hr') {
+      const matched = users.find((u) => u.role === 'HR Staff') || employees.find((e) => e.role === 'HR Staff');
+      return {
+        isGeneral: false,
+        moduleTitle: 'HR',
+        subLabel: 'HR Staff',
+        userName: matched?.name || 'Dimas Pratama',
+        position: 'HR Staff',
+        employeeId: matched?.id || (matched as any)?.user_id || 'USR-013',
+        email: matched?.email || 'dimas.hr@jacs-erp.com',
+        avatarUrl: matched?.avatarUrl || matched?.avatar || null,
+      };
+    }
+
+    // 7. Modul Finance ('finance')
+    if (activeNav === 'finance') {
+      const matched = users.find((u) => u.role === 'Finance Staff') || employees.find((e) => e.role === 'Finance Staff');
+      return {
+        isGeneral: false,
+        moduleTitle: 'FINANCE',
+        subLabel: 'Finance Staff',
+        userName: matched?.name || 'Maya Indah',
+        position: 'Finance Staff',
+        employeeId: matched?.id || (matched as any)?.user_id || 'USR-012',
+        email: matched?.email || 'maya.finance@jacs-erp.com',
+        avatarUrl: matched?.avatarUrl || matched?.avatar || null,
+      };
+    }
+
+    // 8. Modul Purchasing ('purchasing')
+    if (activeNav === 'purchasing') {
+      const matched = users.find((u) => u.role === 'Purchasing Staff') || employees.find((e) => e.role === 'Purchasing Staff');
+      return {
+        isGeneral: false,
+        moduleTitle: 'PURCHASING',
+        subLabel: 'Purchasing Staff',
+        userName: matched?.name || 'Agnes Monica',
+        position: 'Purchasing Staff',
+        employeeId: matched?.id || (matched as any)?.user_id || 'USR-014',
+        email: matched?.email || 'agnes.purchasing@jacs-erp.com',
+        avatarUrl: matched?.avatarUrl || matched?.avatar || null,
+      };
+    }
+
+    // 9. Modul Warehouse ('warehouse')
+    if (activeNav === 'warehouse') {
+      const matched = users.find((u) => u.role === 'Inventory Staff' && u.name.includes('Hendra')) || employees.find((e) => e.role === 'Inventory Staff');
+      return {
+        isGeneral: false,
+        moduleTitle: 'WAREHOUSE',
+        subLabel: 'Inventory Staff',
+        userName: matched?.name || 'Hendra Wijaya',
+        position: 'Inventory Staff',
+        employeeId: matched?.id || (matched as any)?.user_id || 'USR-005',
+        email: matched?.email || 'hendra.wh@jacs-erp.com',
+        avatarUrl: matched?.avatarUrl || matched?.avatar || null,
+      };
+    }
+
+    // 10. Modul Master Data ('master-data' atau 'master_data')
+    if (activeNav === 'master-data' || (activeNav as string) === 'master_data') {
+      const matched = users.find((u) => u.name.includes('Hendra')) || employees.find((e) => e.name.includes('Hendra'));
+      return {
+        isGeneral: false,
+        moduleTitle: 'MASTER DATA',
+        subLabel: 'Master Data Specialist',
+        userName: matched?.name || 'Hendra Wijaya',
+        position: 'Master Data Specialist',
+        employeeId: matched?.id || (matched as any)?.user_id || 'USR-005',
+        email: matched?.email || 'hendra.wh@jacs-erp.com',
+        avatarUrl: matched?.avatarUrl || matched?.avatar || null,
+      };
+    }
+
+    // Fallback default ke HOME umum
+    return {
+      isGeneral: true,
+      moduleTitle: 'HOME',
+      subLabel: 'Mode Umum',
+      userName: 'HOME',
+      position: 'Mode Umum',
+      employeeId: 'UMUM',
+      email: 'umum@jacs.retailos.id',
+      avatarUrl: null,
+    };
+  }, [activeNav, isCashierWorkspaceActive, activeTerminal, activeUser, users, employees]);
 
   const openPinAuth = (onSuccess?: (user: User) => void) => {
     if (onSuccess) {
@@ -2163,17 +2848,106 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setPinSuccessCallback(null);
   };
 
-  const verifyPin = (pin: string): { success: boolean; user?: User; error?: string } => {
-    const matchedUser = users.find((u) => u.pin === pin && u.status === 'Active');
+  const getDivisionNavForRole = (role: UserRole): ActiveNavModule => {
+    switch (role) {
+      case 'Manager':
+        return 'executive';
+      case 'HR Staff':
+        return 'hr';
+      case 'Finance Staff':
+        return 'finance';
+      case 'Purchasing Staff':
+        return 'purchasing';
+      case 'Inventory Staff':
+        return 'warehouse';
+      case 'Kasir':
+        return 'pos';
+      case 'Super Admin':
+        return 'admin';
+      default:
+        return 'home';
+    }
+  };
+
+  const verifyPin = (pin: string, targetUserId?: string): { success: boolean; user?: User; error?: string } => {
+    const trimmed = pin.trim();
+    let matchedUser: User | undefined;
+
+    if (targetUserId) {
+      matchedUser = users.find((u) => u.user_id === targetUserId && u.pin === trimmed && u.status === 'Active');
+      if (!matchedUser) {
+        // Fallback: periksa apakah PIN cocok dengan staf lain di Master Data
+        const altMatch = users.find((u) => u.pin === trimmed && u.status === 'Active');
+        if (altMatch) {
+          matchedUser = altMatch;
+        }
+      }
+    } else {
+      matchedUser = users.find((u) => u.pin === trimmed && u.status === 'Active');
+    }
+
+    if (!matchedUser) {
+      const matchedEmp = employees.find((e) => e.pin === trimmed && e.status !== 'Inactive');
+      if (matchedEmp) {
+        matchedUser = {
+          user_id: matchedEmp.id,
+          id: matchedEmp.id,
+          name: matchedEmp.name,
+          email: matchedEmp.email || `${matchedEmp.name.toLowerCase().replace(/\s+/g, '.')}@jacs-erp.com`,
+          division: matchedEmp.division,
+          role: (matchedEmp.role.includes('Kasir')
+            ? 'Kasir'
+            : matchedEmp.role.includes('Manager')
+            ? 'Manager'
+            : matchedEmp.role.includes('HR')
+            ? 'HR Staff'
+            : matchedEmp.role.includes('Finance')
+            ? 'Finance Staff'
+            : matchedEmp.role.includes('Purchasing')
+            ? 'Purchasing Staff'
+            : matchedEmp.role.includes('Inventory') || matchedEmp.role.includes('Warehouse')
+            ? 'Inventory Staff'
+            : 'Kasir') as UserRole,
+          status: 'Active',
+          pin: matchedEmp.pin,
+          avatar: matchedEmp.avatar || null,
+          avatarUrl: matchedEmp.avatarUrl ?? null,
+        };
+      }
+    }
+
     if (matchedUser) {
-      setActiveUser(matchedUser);
+      if (matchedUser.role !== 'Super Admin') {
+        setIsSuperAdminAuthenticated(false);
+        localStorage.removeItem('jacs_super_admin_authenticated');
+        localStorage.setItem('jacs_super_admin_authenticated', 'false');
+        sessionStorage.removeItem('jacs_super_admin_authenticated');
+
+        // Otomatis berpindah ke dashboard divisi terkait
+        const targetNav = getDivisionNavForRole(matchedUser.role);
+        setActiveNavState(targetNav);
+        localStorage.setItem('jacs_erp_active_nav', targetNav);
+      } else {
+        setIsSuperAdminAuthenticated(true);
+        localStorage.setItem('jacs_super_admin_authenticated', 'true');
+        setActiveNavState('admin');
+        localStorage.setItem('jacs_erp_active_nav', 'admin');
+      }
+
+      setActiveUserState(matchedUser);
+      localStorage.setItem('jacs_erp_active_user_id', matchedUser.user_id);
       if (pinSuccessCallback) {
         pinSuccessCallback(matchedUser);
       }
       closePinAuth();
-      // Add audit log
-      addAuditLog(`Operator switch to ${matchedUser.name} via PIN verification`, 'Authentication', 'INFO');
+      // Add audit log & feedback
+      addAuditLog(`Operator switch to ${matchedUser.name} (${matchedUser.role}) via PIN verification`, 'Authentication', 'INFO');
+      showToast(`Login berhasil sebagai ${matchedUser.name} (${matchedUser.role})`);
       return { success: true, user: matchedUser };
+    }
+
+    if (targetUserId) {
+      return { success: false, error: 'PIN tidak sesuai untuk karyawan ini!' };
     }
     return { success: false, error: 'PIN salah atau user non-aktif. Coba lagi!' };
   };
@@ -2183,7 +2957,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newLog: AuditLog = {
       id: `LOG-${uniqueSuffix}`,
       timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
-      user: `${activeUser.name} (${activeUser.role})`,
+      user: activeUser ? `${activeUser.name} (${activeUser.role})` : 'System (Belum Login)',
       action: module,
       details,
       module,
@@ -2559,6 +3333,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  // Notifikasi & Draf Otomatis Batas Minimum Stok (ROP / Reorder Point) ke Purchasing
+  const triggerRopDraftPurchaseRequest = (
+    product: Product,
+    newStock: number,
+    currentPrList: PurchaseRequest[]
+  ): { pr: PurchaseRequest; approval: ApprovalItem } | null => {
+    const thresholdInfo = getProductAlertThreshold(product);
+    const minStock = product.minStock ?? product.min_stock ?? thresholdInfo.minStock ?? 10;
+    if (newStock > minStock) return null;
+
+    const pName = (product.name || '').toLowerCase().trim();
+    const pId = (product.id || '').toLowerCase().trim();
+
+    const alreadyHasPr = currentPrList.some((pr) => {
+      const prItem = (pr.item_name || '').toLowerCase().trim();
+      const isNameMatch =
+        prItem.includes(pName) ||
+        pName.includes(prItem.split('(')[0].trim()) ||
+        prItem.includes(pId);
+      const isPending =
+        pr.status === 'Pending Approval' ||
+        pr.status === 'PENDING' ||
+        pr.status === 'Draft' ||
+        pr.status === 'Draft PR';
+      return isNameMatch && isPending;
+    });
+
+    if (alreadyHasPr) return null;
+
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10);
+    const targetMax =
+      product.initialStock && product.initialStock > minStock
+        ? product.initialStock
+        : Math.max(minStock * 3, 20);
+    const orderQty = Math.max(1, targetMax - Math.max(0, newStock));
+    const unitCost = product.cost_price || product.buy_price || 15000;
+    const estimatedCost = orderQty * unitCost;
+    const prNumber = `PR-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+      currentPrList.length + 1
+    ).padStart(3, '0')}`;
+
+    const newPr: PurchaseRequest = {
+      pr_number: prNumber,
+      date: dateStr,
+      department: 'Warehouse & Logistik',
+      requester_name: 'Sistem Otomatis (Batas Stok ROP)',
+      item_name: `${product.name} (SKU: ${product.sku || product.barcode || product.id})`,
+      qty: orderQty,
+      estimated_cost: estimatedCost,
+      status: 'PENDING',
+      urgency: newStock <= 0 ? 'High' : 'Medium',
+    };
+
+    const newApproval: ApprovalItem = {
+      id: `APP-${prNumber}`,
+      type: 'PURCHASE_REQUEST',
+      title: `Pengadaan ROP: ${product.name} (${orderQty} Unit)`,
+      requester: 'Sistem Otomatis (Batas Stok ROP)',
+      department: 'Warehouse & Logistik',
+      date: dateStr,
+      amount: estimatedCost,
+      status: 'PENDING',
+      details: `Permintaan pengadaan otomatis karena stok sisa (${newStock} Unit) telah menyentuh atau di bawah batas minimum ROP (≤ ${minStock} Unit). Estimasi biaya: Rp ${estimatedCost.toLocaleString(
+        'id-ID'
+      )}.`,
+    };
+
+    return { pr: newPr, approval: newApproval };
+  };
+
   // Executive Promotions Hub
   const addPromotion = (promoData: Omit<PromotionProgram, 'id'>) => {
     const newPromo: PromotionProgram = {
@@ -2703,7 +3548,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const targetTerminal = terminals.find((t) => t.id === targetTerminalId) || activeTerminal;
     const targetTerminalName = targetTerminal.name;
     const targetBusinessType = payload.businessType || targetTerminal.businessType || targetTerminal.businessModel || targetTerminal.modelType || 'retail';
-    const cashierName = payload.cashierName || activeUser.name;
+    const cashierName = payload.cashierName || safeOperator.name;
 
     const rawMethod = String(payload.paymentMethod || '').trim().toUpperCase();
     const isCreditSale =
@@ -2763,7 +3608,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cashier_name: cashierName,
         operator: cashierName,
         warehouse: currentProd.rackLocation || 'GD001 - Gudang Utama',
-        notes: `Penjualan Kasir POS (#${receiptRef}) - ${targetTerminalName}`,
+        notes: `Penjualan POS - No. Faktur ${receiptRef}`,
       });
 
       // Cek resep bahan baku (Bill of Materials) jika item merupakan menu F&B
@@ -2816,11 +3661,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             cashier_name: cashierName,
             operator: cashierName,
             warehouse: rawProd?.rackLocation || 'GD001 - Gudang Utama',
-            notes: `BOM Resep: ${item.product.name} (x${item.quantity}) - ${ingQty} ${ingredient.unit}/porsi`,
+            notes: `Penjualan POS - No. Faktur ${receiptRef} (BOM Resep: ${item.product.name} x${item.quantity})`,
           });
         });
       }
     });
+
+    // 2. Periksa produk yang menyentuh atau berada di bawah batas minimum stok (Reorder Point / ROP)
+    const autoRopPrList: PurchaseRequest[] = [];
+    const autoRopApprovals: ApprovalItem[] = [];
 
     // Perbarui stok produk gudang (products.stock) secara realtime & sinkronisasi status alert
     setProducts((prev) => {
@@ -2851,6 +3700,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } else {
             newStatus = 'Active';
           }
+
+          // Otomatis buat draf Purchase Request (PR) berstatus PENDING jika stok menyentuh atau <= ROP
+          const ropResult = triggerRopDraftPurchaseRequest(
+            { ...p, stock: updatedStock },
+            updatedStock,
+            [...purchaseRequests, ...autoRopPrList]
+          );
+          if (ropResult) {
+            autoRopPrList.push(ropResult.pr);
+            autoRopApprovals.push(ropResult.approval);
+          }
+
           return { ...p, stock: updatedStock, status: newStatus };
         }
         return p;
@@ -2864,6 +3725,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return clean;
     });
+
+    if (autoRopPrList.length > 0) {
+      setPurchaseRequests((prev) => {
+        const next = [...autoRopPrList, ...prev];
+        try {
+          localStorage.setItem('jacs_erp_purchase_requests', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+      setApprovalQueue((prev) => {
+        const next = [...autoRopApprovals, ...prev];
+        try {
+          localStorage.setItem('jacs_erp_approvals', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+      addAuditLog(
+        `Auto-generate ${autoRopPrList.length} Draf Purchase Request (ROP) berstatus PENDING di modul Purchasing`,
+        'Warehouse & Purchasing'
+      );
+    }
 
     // Perbarui catatan inventory warehouse (DB_Inventory) secara realtime
     setInventory((prev) => {
@@ -2928,7 +3810,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     if (newStockMutations.length > 0) {
-      setStockMutations((prev) => [...newStockMutations, ...prev]);
+      setStockMutations((prev) => {
+        const next = [...newStockMutations, ...prev];
+        try {
+          localStorage.setItem('jacs_erp_stock_mutations', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
     }
 
     // 2. Catat jurnal penjualan: Jika kredit/tempo (AR), Debit Piutang Usaha (1-10301) dan Kredit Pendapatan Penjualan (4-10001) dengan ID POS-AR-[id]
@@ -3093,8 +3981,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const autoShiftId = payload.shiftId || `SHIFT-${dateCode}-${targetTerminal.code || targetTerminalId}`;
       const newShift: CashierShift = {
         id: autoShiftId,
-        cashierId: activeUser.user_id,
-        cashierName: activeUser.name,
+        cashierId: safeOperator.user_id,
+        cashierName: safeOperator.name,
         terminalId: targetTerminalId,
         terminalName: targetTerminalName,
         startTime: `${dateStr} ${timeStr.slice(11) || '08:00:00'}`,
@@ -3169,7 +4057,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       receipt_number: receiptRef,
       date: dateStr,
       created_at: timeStr,
-      cashier_id: activeUser.user_id,
+      cashier_id: safeOperator.user_id,
       cashier_name: cashierName,
       terminal_name: targetTerminalName,
       terminalId: targetTerminalId,
@@ -3494,7 +4382,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         title: isDirector
           ? `[DIREKSI] Otorisasi PO Nilai Tinggi: ${poNum} (${newPO.supplier_name})`
           : `Otorisasi PO: ${poNum} (${newPO.supplier_name})`,
-        requester: `${activeUser.name} (${activeUser.role})`,
+        requester: `${safeOperator.name} (${safeOperator.role})`,
         department: isDirector ? 'Executive & Board of Directors' : 'Purchasing & Procurement',
         date: newPO.date,
         amount: newPO.total_amount,
@@ -3576,7 +4464,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             resolvedStatus === 'Disetujui' ||
             resolvedStatus === 'Approved'
           ) {
-            updated.approved_by = `${activeUser.name} (${activeUser.role})`;
+            updated.approved_by = `${safeOperator.name} (${safeOperator.role})`;
             updated.approved_date = dateStr;
             if (reasonOrNotes) updated.approval_notes = reasonOrNotes;
             syncAccountsPayableInvoice(updated, 'APPROVED');
@@ -3633,7 +4521,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           title: isDirector
             ? `[DIREKSI] Otorisasi PO Nilai Tinggi: ${poNumber} (${targetPo.supplier_name})`
             : `Otorisasi PO: ${poNumber} (${targetPo.supplier_name})`,
-          requester: `${activeUser.name} (${activeUser.role})`,
+          requester: `${safeOperator.name} (${safeOperator.role})`,
           department: isDirector ? 'Executive & Board of Directors' : 'Purchasing & Procurement',
           date: targetPo.date,
           amount: targetPo.total_amount,
@@ -3666,10 +4554,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newHistoryItem: POApprovalHistoryItem = {
       action: 'REJECTED',
-      approvedBy: `${activeUser.name} (${activeUser.role})`,
+      approvedBy: `${safeOperator.name} (${safeOperator.role})`,
       approvedAt: timestampStr,
       notes: reason || 'Ditolak oleh Direksi / Executive',
-      role: activeUser.role,
+      role: safeOperator.role,
     };
 
     setPurchasing((prev) => {
@@ -3704,7 +4592,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     addAuditLog(
-      `Executive Rejection: PO ${poNumber} ditolak oleh ${activeUser.name}. Alasan: ${reason || 'Tanpa catatan'}.`,
+      `Executive Rejection: PO ${poNumber} ditolak oleh ${safeOperator.name}. Alasan: ${reason || 'Tanpa catatan'}.`,
       'Executive / Otorisasi PO',
       'WARN'
     );
@@ -3745,7 +4633,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       totalRefundAmount,
       reason: payload.reason,
       status: 'APPLIED',
-      created_by: `${activeUser.name} (${activeUser.role})`,
+      created_by: `${safeOperator.name} (${safeOperator.role})`,
     };
 
     setPurchaseReturns((prev) => [newReturn, ...prev]);
@@ -3994,7 +4882,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       title: isDirectorApproval
         ? `[DIREKSI] Otorisasi PO Nilai Tinggi: ${poNum} (${supplierName})`
         : `Otorisasi PO: ${poNum} (${supplierName})`,
-      requester: `${activeUser.name} (${activeUser.role})`,
+      requester: `${safeOperator.name} (${safeOperator.role})`,
       department: isDirectorApproval ? 'Executive & Board of Directors' : 'Warehouse & Purchasing',
       date: dateStr,
       amount: totalAmount,
@@ -4118,7 +5006,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         title: isDirectorApproval
           ? `[DIREKSI] Otorisasi PO Massal Nilai Tinggi: ${poNum} (${supplierName})`
           : `Otorisasi PO Massal: ${poNum} (${supplierName})`,
-        requester: `${activeUser.name} (${activeUser.role})`,
+        requester: `${safeOperator.name} (${safeOperator.role})`,
         department: isDirectorApproval ? 'Executive & Board of Directors' : 'Warehouse & Purchasing',
         date: dateStr,
         amount: totalAmount,
@@ -4163,10 +5051,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newHistoryItem: POApprovalHistoryItem = {
       action: 'APPROVED',
-      approvedBy: `${activeUser.name} (${activeUser.role})`,
+      approvedBy: `${safeOperator.name} (${safeOperator.role})`,
       approvedAt: timestampStr,
       notes: notes || 'Otorisasi disetujui oleh Direksi / Executive',
-      role: activeUser.role,
+      role: safeOperator.role,
     };
 
     // 1. Ubah status PO menjadi 'APPROVED' dan perbarui approvalHistory (approvedBy, approvedAt)
@@ -4177,9 +5065,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return {
             ...po,
             status: 'APPROVED' as PurchaseOrderStatus,
-            approved_by: `${activeUser.name} (${activeUser.role})`,
+            approved_by: `${safeOperator.name} (${safeOperator.role})`,
             approved_date: dateStr,
-            approvedBy: `${activeUser.name} (${activeUser.role})`,
+            approvedBy: `${safeOperator.name} (${safeOperator.role})`,
             approvedAt: timestampStr,
             approval_notes: notes || po.approval_notes,
             approvalHistory: updatedHistory,
@@ -4304,7 +5192,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addAuditLog(
       `Executive Approval: PO ${poNumber} (${targetPo.supplier_name}) senilai Rp ${targetPo.total_amount.toLocaleString(
         'id-ID'
-      )} DISETUJUI oleh ${activeUser.name}. Tagihan AP [2-10001] & Jurnal Akrual/Komitmen otomatis dibukukan.`,
+      )} DISETUJUI oleh ${safeOperator.name}. Tagihan AP [2-10001] & Jurnal Akrual/Komitmen otomatis dibukukan.`,
       'Executive / Otorisasi PO',
       'INFO'
     );
@@ -4500,7 +5388,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             supplier_name: targetPO.supplier_name,
             unit_cost: incomingCost,
             notes: `Penerimaan Barang PO ${targetPO.po_number} dari ${targetPO.supplier_name} (DO: ${doNumber})${rejInfo} • HPP Rata-rata: Rp ${newAverageCost.toLocaleString('id-ID')}/unit`,
-            operator: `${activeUser.name} (${activeUser.role})`,
+            operator: `${safeOperator.name} (${safeOperator.role})`,
             warehouse: prod.rackLocation || 'GD001 - Gudang Utama',
           });
 
@@ -4590,7 +5478,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             status: 'RECEIVED' as PurchaseOrderStatus,
             delivery_order_no: doNumber,
             received_date: dateStr,
-            received_by: `${activeUser.name} (${activeUser.role})`,
+            received_by: `${safeOperator.name} (${safeOperator.role})`,
             item_details: updatedDetails.length > 0 ? updatedDetails : po.item_details,
             receiving_notes: options?.notes || po.receiving_notes,
           };
@@ -4616,7 +5504,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         warehouseId: 'WH-MAIN-01',
         deliveryOrderNumber: doNumber,
         receivedDate: timeStr,
-        receivedByUserId: `${activeUser.name} (${activeUser.role})`,
+        receivedByUserId: `${safeOperator.name} (${safeOperator.role})`,
         status: 'VERIFIED',
         items: itemsToReceive.map((it, idx) => ({
           id: `GRI-${Date.now()}-${idx}`,
@@ -4746,7 +5634,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       warehouseId: 'WH-MAIN-01',
       deliveryOrderNumber: doNumber,
       receivedDate: timeStr,
-      receivedByUserId: `${activeUser.name} (${activeUser.role})`,
+      receivedByUserId: `${safeOperator.name} (${safeOperator.role})`,
       status: 'VERIFIED',
       items: grItems,
       notes: payload.notes || 'Penerimaan fisik barang & verifikasi surat jalan (DO)',
@@ -4816,7 +5704,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             supplier_name: targetPO.supplier_name,
             unit_cost: incomingCost,
             notes: `Penerimaan Barang PO ${payload.poNumber} dari ${targetPO.supplier_name} (DO: ${doNumber})${rejInfo} • HPP Rata-rata: Rp ${newAverageCost.toLocaleString('id-ID')}/unit`,
-            operator: `${activeUser.name} (${activeUser.role})`,
+            operator: `${safeOperator.name} (${safeOperator.role})`,
             warehouse: prod.rackLocation || 'GD001 - Gudang Utama',
           });
 
@@ -4932,7 +5820,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             status: nextStatus,
             delivery_order_no: doNumber,
             received_date: dateStr,
-            received_by: `${activeUser.name} (${activeUser.role})`,
+            received_by: `${safeOperator.name} (${safeOperator.role})`,
             item_details: updatedDetails,
             received_items: [...(po.received_items || []), ...grItems],
             receiving_notes: payload.notes,
@@ -5025,6 +5913,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let prevStockVal = 0;
     let newStockVal = 0;
     let targetProductName = productId;
+    let adjustedProduct: Product | undefined;
 
     setProducts((prev) =>
       prev.map((p) => {
@@ -5033,9 +5922,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const newStock = Math.max(0, p.stock + qtyDelta);
           newStockVal = newStock;
           targetProductName = p.name;
+          adjustedProduct = { ...p, stock: newStock };
+          const thresholdInfo = getProductAlertThreshold(p);
+          const effectiveMinStock = p.minStock ?? p.min_stock ?? thresholdInfo.minStock ?? 10;
           let newStatus = p.status;
           if (newStock <= 0) newStatus = 'Out of Stock';
-          else if (newStock <= 10) newStatus = 'Low Stock';
+          else if (newStock <= effectiveMinStock || thresholdInfo.isLowStock) newStatus = 'Low Stock';
           else newStatus = 'Active';
           return { ...p, stock: newStock, status: newStatus };
         }
@@ -5068,9 +5960,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       final_stock: newStockVal,
       reference_no: reason.includes('PO') ? reason : `ADJ-${Date.now().toString().slice(-4)}`,
       notes: reason,
-      operator: `${activeUser.name} (${activeUser.role})`,
+      operator: `${safeOperator.name} (${safeOperator.role})`,
     };
     setStockMutations((prev) => [newMut, ...prev]);
+
+    // ROP check jika stok berkurang
+    if (qtyDelta < 0 && adjustedProduct) {
+      const ropResult = triggerRopDraftPurchaseRequest(
+        adjustedProduct,
+        newStockVal,
+        purchaseRequests
+      );
+      if (ropResult) {
+        setPurchaseRequests((prev) => [ropResult.pr, ...prev]);
+        setApprovalQueue((prev) => [ropResult.approval, ...prev]);
+        showToast(
+          `⚠️ Stok ${adjustedProduct.name} menyentuh batas ROP (${newStockVal} unit). Draf Purchase Request ${ropResult.pr.pr_number} berstatus PENDING otomatis dibuat di Purchasing!`
+        );
+      }
+    }
 
     addAuditLog(`Stock adjusted for ${productId} by ${qtyDelta > 0 ? '+' : ''}${qtyDelta} (${reason})`, 'Warehouse');
   };
@@ -5095,18 +6003,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const adjSeq = Date.now().toString().slice(-6);
     const adjRef = `FIN-STK-ADJ-${adjSeq}`;
     const journalId = `JRN-${adjRef}`;
-    const operatorName = params.operator || `${activeUser.name} (${activeUser.role})`;
+    const operatorName = params.operator || `${safeOperator.name} (${safeOperator.role})`;
 
     // 1. Sesuaikan stok fisik riil produk di katalog
     const newStock = Math.max(0, params.physicalStock);
+    const thresholdInfo = getProductAlertThreshold(product);
+    const effectiveMinStock = product.minStock ?? product.min_stock ?? thresholdInfo.minStock ?? 10;
     let newStatus = product.status;
     if (newStock <= 0) newStatus = 'Out of Stock';
-    else if (newStock <= 10) newStatus = 'Low Stock';
+    else if (newStock <= effectiveMinStock || thresholdInfo.isLowStock) newStatus = 'Low Stock';
     else newStatus = 'Active';
 
     setProducts((prev) =>
       prev.map((p) => (p.id === params.productId ? { ...p, stock: newStock, status: newStatus } : p))
     );
+
+    if (difference < 0 || newStock <= effectiveMinStock) {
+      const ropResult = triggerRopDraftPurchaseRequest(
+        { ...product, stock: newStock },
+        newStock,
+        purchaseRequests
+      );
+      if (ropResult) {
+        setPurchaseRequests((prev) => [ropResult.pr, ...prev]);
+        setApprovalQueue((prev) => [ropResult.approval, ...prev]);
+      }
+    }
 
     // 2. Sesuaikan saldo inventori (DB_Inventory)
     setInventory((prev) =>
@@ -5314,8 +6236,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const newShift: CashierShift = {
       id: shiftId,
-      cashierId: activeUser.user_id,
-      cashierName: activeUser.name,
+      cashierId: safeOperator.user_id,
+      cashierName: safeOperator.name,
       terminalId: activeTerminal.id,
       terminalName: activeTerminal.name,
       startTime: `${now.toISOString().slice(0, 10)} ${timeStr}`,
@@ -5333,7 +6255,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveShift(newShift);
 
     addAuditLog(
-      `Kasir ${activeUser.name} membuka shift ${shiftId} di ${activeTerminal.name} dengan modal kas Rp ${initialCash.toLocaleString('id-ID')}`,
+      `Kasir ${safeOperator.name} membuka shift ${shiftId} di ${activeTerminal.name} dengan modal kas Rp ${initialCash.toLocaleString('id-ID')}`,
       'POS / Shift Kasir',
       'INFO'
     );
@@ -5360,8 +6282,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       amount,
       reason,
       category: 'KAS_KECIL_KASIR',
-      cashierId: activeUser.user_id,
-      cashierName: activeUser.name,
+      cashierId: safeOperator.user_id,
+      cashierName: safeOperator.name,
       terminalId: activeTerminal.id,
     };
 
@@ -5435,7 +6357,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       difference,
       reconciliationStatus: status,
       notes: notes || activeShift.notes,
-      closedBy: `${activeUser.name} (${activeUser.role})`,
+      closedBy: `${safeOperator.name} (${safeOperator.role})`,
       closedAt: endTimestamp,
       denominationBreakdown,
     };
@@ -5593,7 +6515,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Simpan ringkasan penutupan shift ke audit log Finance dengan status 'CLOSED'
     addAuditLog(
-      `[CASH DRAWER CLOSING - CLOSED] Rekonsiliasi Kas Akhir Shift #${closedShift.id} (${closedShift.terminalName} - Kasir: ${closedShift.cashierName}). Kas Awal (Opening Float): Rp ${activeShift.initialCash.toLocaleString('id-ID')} + Total Penjualan Tunai Sistem: Rp ${activeShift.totalCashSales.toLocaleString('id-ID')}${activeShift.totalExpenses > 0 ? ` - Kas Keluar (Petty Cash): Rp ${activeShift.totalExpenses.toLocaleString('id-ID')}` : ''} = Kas Sistem: Rp ${expected.toLocaleString('id-ID')} vs Uang Fisik Terhitung: Rp ${actualCash.toLocaleString('id-ID')}. Selisih: ${difference >= 0 ? '+' : ''}Rp ${difference.toLocaleString('id-ID')} | Status Rekonsiliasi: ${statusTextIndo} | Status Shift: CLOSED. Ditutup oleh: ${activeUser.name} (${activeUser.role}). Catatan: ${closedShift.notes || 'Laci dihitung fisik'}`,
+      `[CASH DRAWER CLOSING - CLOSED] Rekonsiliasi Kas Akhir Shift #${closedShift.id} (${closedShift.terminalName} - Kasir: ${closedShift.cashierName}). Kas Awal (Opening Float): Rp ${activeShift.initialCash.toLocaleString('id-ID')} + Total Penjualan Tunai Sistem: Rp ${activeShift.totalCashSales.toLocaleString('id-ID')}${activeShift.totalExpenses > 0 ? ` - Kas Keluar (Petty Cash): Rp ${activeShift.totalExpenses.toLocaleString('id-ID')}` : ''} = Kas Sistem: Rp ${expected.toLocaleString('id-ID')} vs Uang Fisik Terhitung: Rp ${actualCash.toLocaleString('id-ID')}. Selisih: ${difference >= 0 ? '+' : ''}Rp ${difference.toLocaleString('id-ID')} | Status Rekonsiliasi: ${statusTextIndo} | Status Shift: CLOSED. Ditutup oleh: ${safeOperator.name} (${safeOperator.role}). Catatan: ${closedShift.notes || 'Laci dihitung fisik'}`,
       'Finance / Rekonsiliasi Kas',
       difference === 0 ? 'INFO' : 'WARN'
     );
@@ -5667,8 +6589,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       receiptNumber: targetSale.receipt_number || targetSale.transaction_id,
       customerName: targetSale.customer_name || 'Pelanggan Umum',
       customerPhone: targetSale.customer_phone,
-      cashierId: activeUser.user_id,
-      cashierName: activeUser.name,
+      cashierId: safeOperator.user_id,
+      cashierName: safeOperator.name,
       terminalName: activeTerminal.name,
       timestamp: `${dateStr} ${timeStr}`,
       items: returnItems,
@@ -5737,7 +6659,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           final_stock: prevStock + ret.returnQty,
           reference_no: returnId,
           referenceId: targetSale.transaction_id,
-          operator: `${activeUser.name} (Kasir)`,
+          operator: `${safeOperator.name} (Kasir)`,
           notes: `Retur Penjualan Kondisi Baik (Restock Siap Jual) - Nota ${targetSale.receipt_number || targetSale.transaction_id}`,
         };
       });
@@ -5771,7 +6693,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sourceType: 'RETUR_PENJUALAN',
         sourceReference: returnId,
         timestamp: `${dateStr} ${timeStr}`,
-        handledBy: `${activeUser.name} (${activeUser.role})`,
+        handledBy: `${safeOperator.name} (${safeOperator.role})`,
         status: 'QUARANTINED',
       }));
       setBadStockItems((prev) => [...newBadItems, ...prev]);
@@ -5790,7 +6712,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           final_stock: prod.stock || 0,
           reference_no: returnId,
           referenceId: targetSale.transaction_id,
-          operator: `${activeUser.name} (Kasir)`,
+          operator: `${safeOperator.name} (Kasir)`,
           notes: `Retur Rusak/Bad Stock dialihkan ke Karantina: ${ret.reason}`,
         };
       });
@@ -5809,8 +6731,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         amount: totalRefundAmount,
         reason: `Refund Kas Retur Penjualan #${returnId} (${targetSale.receipt_number || targetSale.transaction_id})`,
         category: 'KAS_KECIL_KASIR',
-        cashierId: activeUser.user_id,
-        cashierName: activeUser.name,
+        cashierId: safeOperator.user_id,
+        cashierName: safeOperator.name,
         terminalId: activeTerminal.id,
       };
 
@@ -6107,13 +7029,154 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`Purchase Request ${prNumber} berhasil diajukan dan masuk ke Approval Queue!`);
   };
 
+  const approvePurchaseRequest = (prNumberOrId: string) => {
+    let targetPrNumber = prNumberOrId;
+    let matchedItemName = '';
+
+    setPurchaseRequests((prev) => {
+      const next = prev.map((pr) => {
+        if (
+          pr.pr_number === prNumberOrId ||
+          prNumberOrId.includes(pr.pr_number) ||
+          pr.pr_number === prNumberOrId.replace('APP-', '') ||
+          pr.pr_number === prNumberOrId.replace('APP-PR-', '')
+        ) {
+          targetPrNumber = pr.pr_number;
+          matchedItemName = pr.item_name;
+          return { ...pr, status: 'APPROVED' as const };
+        }
+        return pr;
+      });
+      try {
+        localStorage.setItem('jacs_erp_purchase_requests', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    setApprovalQueue((prev) => {
+      const next = prev.map((item) => {
+        if (
+          item.id === prNumberOrId ||
+          item.reference_id === targetPrNumber ||
+          item.reference_id === prNumberOrId ||
+          item.id === `APP-${targetPrNumber}` ||
+          item.id === `APP-PR-${targetPrNumber.replace(/^PR-/, '')}` ||
+          item.details.includes(targetPrNumber) ||
+          (matchedItemName && item.title.includes(matchedItemName))
+        ) {
+          return { ...item, status: 'APPROVED' as const };
+        }
+        return item;
+      });
+      try {
+        localStorage.setItem('jacs_erp_approval_queue', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    addAuditLog(
+      `Persetujuan PR ${targetPrNumber}: Disetujui (APPROVED) oleh Direksi/Executive. Status PR kini APPROVED, staf Purchasing dapat memproses penerbitan PO.`,
+      'Executive & Purchasing',
+      'INFO'
+    );
+
+    showToast(
+      `Purchase Request ${targetPrNumber} berhasil disetujui (APPROVED)! Staf Purchasing kini dapat memproses penerbitan PO.`
+    );
+  };
+
+  const rejectPurchaseRequest = (prNumberOrId: string, reason?: string) => {
+    let targetPrNumber = prNumberOrId;
+    let matchedItemName = '';
+
+    setPurchaseRequests((prev) => {
+      const next = prev.map((pr) => {
+        if (
+          pr.pr_number === prNumberOrId ||
+          prNumberOrId.includes(pr.pr_number) ||
+          pr.pr_number === prNumberOrId.replace('APP-', '') ||
+          pr.pr_number === prNumberOrId.replace('APP-PR-', '')
+        ) {
+          targetPrNumber = pr.pr_number;
+          matchedItemName = pr.item_name;
+          return { ...pr, status: 'REJECTED' as const };
+        }
+        return pr;
+      });
+      try {
+        localStorage.setItem('jacs_erp_purchase_requests', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    setApprovalQueue((prev) => {
+      const next = prev.map((item) => {
+        if (
+          item.id === prNumberOrId ||
+          item.reference_id === targetPrNumber ||
+          item.reference_id === prNumberOrId ||
+          item.id === `APP-${targetPrNumber}` ||
+          item.id === `APP-PR-${targetPrNumber.replace(/^PR-/, '')}` ||
+          item.details.includes(targetPrNumber) ||
+          (matchedItemName && item.title.includes(matchedItemName))
+        ) {
+          return { ...item, status: 'REJECTED' as const };
+        }
+        return item;
+      });
+      try {
+        localStorage.setItem('jacs_erp_approval_queue', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    addAuditLog(
+      `Penolakan PR ${targetPrNumber}: Ditolak (REJECTED) oleh Direksi/Executive. ${reason || ''}`,
+      'Executive & Purchasing',
+      'WARN'
+    );
+
+    showToast(`Purchase Request ${targetPrNumber} telah ditolak (REJECTED).`);
+  };
+
   const approveItem = (id: string) => {
     setApprovalQueue((prev) =>
       prev.map((item) => (item.id === id ? { ...item, status: 'APPROVED' as const } : item))
     );
 
-    // Sync to Purchase Orders if this is a PO approval item
     const matchedApproval = approvalQueue.find((a) => a.id === id);
+
+    // Sync to Purchase Requests if this is a PR approval item
+    if (
+      matchedApproval?.type === 'PURCHASE_REQUEST' ||
+      matchedApproval?.reference_id?.startsWith('PR-') ||
+      id.includes('PR-')
+    ) {
+      const targetPrNum =
+        matchedApproval?.reference_id ||
+        (id.startsWith('APP-PR-') ? id.replace('APP-', '') : id.startsWith('APP-') ? id.replace('APP-', '') : id);
+      setPurchaseRequests((prev) => {
+        const next = prev.map((pr) => {
+          if (
+            pr.pr_number === targetPrNum ||
+            pr.pr_number === matchedApproval?.reference_id ||
+            (matchedApproval && matchedApproval.title.includes(pr.item_name)) ||
+            (matchedApproval && matchedApproval.details.includes(pr.pr_number))
+          ) {
+            return { ...pr, status: 'APPROVED' as const };
+          }
+          return pr;
+        });
+        try {
+          localStorage.setItem('jacs_erp_purchase_requests', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+      showToast(`Purchase Request ${targetPrNum} berhasil disetujui (APPROVED)! Staf Purchasing kini dapat memproses penerbitan PO.`);
+      return;
+    }
+
+    // Sync to Purchase Orders if this is a PO approval item
     const targetPoNum =
       matchedApproval?.reference_id ||
       (id.startsWith('APP-PO-') ? id.replace('APP-', '') : undefined);
@@ -6174,8 +7237,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((item) => (item.id === id ? { ...item, status: 'REJECTED' as const } : item))
     );
 
-    // Sync to Purchase Orders if this is a PO approval item
     const matchedApproval = approvalQueue.find((a) => a.id === id);
+
+    // Sync to Purchase Requests if this is a PR approval item
+    if (
+      matchedApproval?.type === 'PURCHASE_REQUEST' ||
+      matchedApproval?.reference_id?.startsWith('PR-') ||
+      id.includes('PR-')
+    ) {
+      const targetPrNum =
+        matchedApproval?.reference_id ||
+        (id.startsWith('APP-PR-') ? id.replace('APP-', '') : id.startsWith('APP-') ? id.replace('APP-', '') : id);
+      setPurchaseRequests((prev) => {
+        const next = prev.map((pr) => {
+          if (
+            pr.pr_number === targetPrNum ||
+            pr.pr_number === matchedApproval?.reference_id ||
+            (matchedApproval && matchedApproval.title.includes(pr.item_name)) ||
+            (matchedApproval && matchedApproval.details.includes(pr.pr_number))
+          ) {
+            return { ...pr, status: 'REJECTED' as const };
+          }
+          return pr;
+        });
+        try {
+          localStorage.setItem('jacs_erp_purchase_requests', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+      showToast(`Purchase Request ${targetPrNum} telah ditolak (REJECTED).`);
+      return;
+    }
+
+    // Sync to Purchase Orders if this is a PO approval item
     const targetPoNum =
       matchedApproval?.reference_id ||
       (id.startsWith('APP-PO-') ? id.replace('APP-', '') : undefined);
@@ -6220,6 +7314,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setApprovalQueue((prev) =>
       prev.map((item) => ({ ...item, status: 'APPROVED' as const }))
     );
+    setPurchaseRequests((prev) => {
+      const next = prev.map((pr) => {
+        const s = (pr.status || '').toUpperCase().trim();
+        if (s === 'PENDING' || s === 'PENDING APPROVAL' || s === 'PENDING_APPROVAL') {
+          return { ...pr, status: 'APPROVED' as const };
+        }
+        return pr;
+      });
+      try {
+        localStorage.setItem('jacs_erp_purchase_requests', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
     setPurchasing((prev) => {
       const next = prev.map((po) => {
         const s = (po.status || '').toUpperCase().trim();
@@ -6267,7 +7374,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : l
       )
     );
-    showToast('Seluruh berkas antrean dokumen berhasil disetujui (APPROVED)!');
+    showToast('Seluruh berkas antrean dokumen & PR berhasil disetujui (APPROVED)!');
   };
 
   const payVendorInvoice = (
@@ -6669,7 +7776,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       employeeId: emp.id,
       nip: emp.nip,
       employeeName: emp.name,
-      avatar: emp.avatar,
+      avatar: emp.avatar || '',
       department: emp.department,
       date: dateStr,
       shift: emp.shift,
@@ -7141,9 +8248,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         journalEntries,
         setJournalEntries,
         users,
+        setUsers,
         purchasing,
         purchaseRequests,
+        setPurchaseRequests,
         createPurchaseRequest,
+        approvePurchaseRequest,
+        rejectPurchaseRequest,
         approvalQueue,
         approveItem,
         rejectItem,
@@ -7168,7 +8279,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleTerminalLock,
         setAllTerminalsLock,
         activeUser,
+        currentUser: activeUser,
         setActiveUser,
+        setCurrentUser,
+        contextualProfile,
         brands,
         setBrands,
         categoriesMaster,
@@ -7183,12 +8297,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         developerPassword,
         updateDeveloperPassword,
         isSuperAdminAuthenticated,
-        setIsSuperAdminAuthenticated,
+        setIsSuperAdminAuthenticated: setIsSuperAdminAuthenticatedPersisted,
+        superAdminTab,
+        setSuperAdminTab,
         updateUserPin,
+        resetAllUserPinsToDefault,
+        refreshSystemState,
         emergencySessionReset,
+        exitSuperAdminSession,
+        logout,
         clearAllCacheAndRepair,
         repairStockLedger,
         resetDemoSalesAndRestock,
+        unlockedModules,
+        isModuleUnlocked,
+        unlockModule,
+        lockModule,
+        lockAllModules,
+        verifyModulePassword,
+        moduleCustomPins,
+        getModulePin,
+        updateModulePin,
         businessProfile,
         updateBusinessProfile,
         isFirstRunSetup,
@@ -7276,7 +8405,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastPayrollSyncTime,
         syncPayrollToFinance,
         calculateCashierCommission: (cashier?: string | Employee | User, targetMonth?: string) =>
-          calculateCashierCommission(salesHistory, users, cashier || activeUser, targetMonth),
+          calculateCashierCommission(salesHistory, users, cashier || (activeUser ?? undefined), targetMonth),
         processPayrollPayment,
         // Stock Policies & Executive Alerts
         stockAlertPolicies,
