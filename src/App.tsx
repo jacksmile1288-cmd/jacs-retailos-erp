@@ -46,6 +46,7 @@ const MainLayout: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isFullscreenCashier = activeNav === 'pos' && isCashierWorkspaceActive;
+  const isIsolatedAdmin = activeNav === 'admin';
   const isSuperAdmin = Boolean(
     isSuperAdminAuthenticated || activeUser?.role === 'Super Admin'
   );
@@ -197,13 +198,13 @@ const MainLayout: React.FC = () => {
         </div>
       )}
 
-      {/* Topbar: hidden during active cashier transaction register for 100% widescreen workspace */}
+      {/* Topbar: hidden only during active fullscreen cashier register */}
       {!isFullscreenCashier && (
         <Topbar onOpenMobileMenu={() => setIsMobileMenuOpen(true)} />
       )}
 
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
-        {/* Sidebar: auto-collapsed when cashier transaction workspace is active */}
+        {/* Sidebar: hidden only during active fullscreen cashier register */}
         {!isFullscreenCashier && (
           <Sidebar
             isOpenMobile={isMobileMenuOpen}
@@ -211,12 +212,12 @@ const MainLayout: React.FC = () => {
           />
         )}
 
-        {/* Main Content Viewport: Fullscreen 100% width during cashier transaction */}
+        {/* Main Content Viewport */}
         <main
-          className={`flex-1 ${
+          className={`flex-1 min-w-0 ${
             !isFullscreenCashier
-              ? 'lg:ml-64 md:lg:ml-72 pt-6 pb-12 px-6 sm:px-8 overflow-y-auto flex flex-col'
-              : 'lg:ml-0 p-0 sm:p-2 overflow-y-auto'
+              ? 'lg:ml-64 md:lg:ml-72 pt-4 pb-12 px-4 sm:px-6 md:px-8 overflow-y-auto overflow-x-hidden flex flex-col'
+              : 'lg:ml-0 p-0 sm:p-2 overflow-y-auto overflow-x-hidden'
           } max-w-full`}
         >
           {activeNav === 'home' && <HomeModule />}
