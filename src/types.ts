@@ -1,13 +1,23 @@
-export type UserRole = 'Super Admin' | 'Manager' | 'Kasir' | 'Inventory Staff';
+export type UserRole =
+  | 'Super Admin'
+  | 'Manager'
+  | 'Kasir'
+  | 'Inventory Staff'
+  | 'Finance Staff'
+  | 'HR Staff'
+  | 'Purchasing Staff';
 
 export interface User {
   user_id: string;
+  id?: string;
   name: string;
   email: string;
+  division?: string;
   role: UserRole;
   status: 'Active' | 'Inactive';
   pin: string;
-  avatar?: string;
+  avatar?: string | null;
+  avatarUrl?: string | null;
 }
 
 export type ProductItemType = 'MENU_FB' | 'RETAIL' | 'RAW_MATERIAL';
@@ -783,8 +793,11 @@ export interface PurchaseRequest {
   estimated_cost: number;
   status:
     | 'Pending Approval'
+    | 'PENDING'
     | 'Approved'
+    | 'APPROVED'
     | 'Rejected'
+    | 'REJECTED'
     | 'Converted to PO'
     | 'Draft'
     | 'Draft PR'
@@ -826,6 +839,17 @@ export interface InvoiceDue {
   journal_ref?: string;
 }
 
+export interface ContextualProfile {
+  isGeneral: boolean;
+  moduleTitle: string;
+  subLabel: string;
+  userName: string;
+  position: string;
+  employeeId?: string;
+  email?: string;
+  avatarUrl?: string | null;
+}
+
 export type ActiveNavModule =
   | 'home'
   | 'dashboard'
@@ -842,19 +866,26 @@ export type HrDepartment =
   | 'POS & Kasir'
   | 'Warehouse & Logistik'
   | 'Purchasing'
+  | 'Pengadaan & Purchasing'
   | 'Finance & Accounting'
   | 'Executive & Management'
-  | 'IT & Security';
+  | 'Human Resources & Personalia'
+  | 'Master Data & Katalog'
+  | 'IT & Security'
+  | 'IT & Super Admin';
 
 export type ContractStatus = 'Tetap' | 'Kontrak (PKWT)' | 'Magang' | 'Probation';
 
 export interface Employee {
   id: string;
-  nip: string;
   name: string;
-  avatar: string;
-  department: HrDepartment;
+  division: string;
   role: string;
+  pin: string;
+  avatarUrl: string | null;
+  nip: string;
+  avatar: string | null;
+  department: HrDepartment;
   contractStatus: ContractStatus;
   phone: string;
   email: string;
@@ -900,7 +931,7 @@ export interface AttendanceRecord {
   employeeId: string;
   nip: string;
   employeeName: string;
-  avatar: string;
+  avatar: string | null;
   department: HrDepartment;
   date: string;
   shift: string;
@@ -1030,6 +1061,8 @@ export interface BusinessEntityProfile {
   category: string; // 'Ritel Modern' | 'F&B & Restoran' | 'Farmasi & Apotek' | 'Jasa & Servis' | 'Bahan Bangunan & Perkakas' | 'Fashion & Tekstil' | string
   address: string;
   licenseNumber?: string; // NIB / Izin Usaha / NPWP (Opsional)
+  nib?: string; // Nomor Induk Berusaha (NIB)
+  npwp?: string; // Nomor Pokok Wajib Pajak (NPWP)
   phone?: string;
   email?: string;
   logoUrl?: string;
