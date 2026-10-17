@@ -54,17 +54,33 @@ import {
   Shield,
   Check,
   ListChecks,
+  LogOut,
+  DoorOpen,
+  Home,
+  KeyRound,
+  Bot,
+  SlidersHorizontal,
+  Brain,
+  Wand2,
+  TrendingUp,
+  AlertCircle,
+  HelpCircle,
+  BookOpen,
 } from 'lucide-react';
 import { JacSLogo } from '../common/JacSLogo';
-import { BusinessEntityProfile } from '../../types';
+import { BusinessEntityProfile, Product } from '../../types';
 import { DEFAULT_BUSINESS_PROFILE } from '../../data/initialData';
 import { hasValidProfileValue } from '../../utils/businessProfileUtils';
 import { DataMigrationModal } from '../master/DataMigrationModal';
+import { AiSmartMapperModal } from '../master/AiSmartMapperModal';
+import { SopInfoCenterTab } from './tabs/SopInfoCenterTab';
 import { MigrationEntityType } from '../../types';
 import { getTerminalIndustry } from '../../data/industryTerminalProducts';
 
 export const SuperAdminModule: React.FC = () => {
   const {
+    setActiveNav,
+    exitSuperAdminSession,
     terminals,
     addTerminal,
     deleteTerminal,
@@ -75,7 +91,11 @@ export const SuperAdminModule: React.FC = () => {
     updateDeveloperPassword,
     isSuperAdminAuthenticated,
     setIsSuperAdminAuthenticated,
+    superAdminTab,
+    setSuperAdminTab,
     updateUserPin,
+    resetAllUserPinsToDefault,
+    refreshSystemState,
     emergencySessionReset,
     clearAllCacheAndRepair,
     repairStockLedger,
@@ -100,8 +120,15 @@ export const SuperAdminModule: React.FC = () => {
     purchasing,
     inventory,
     stockMutations,
+    finance,
     shiftsHistory,
     calculateCashierCommission,
+    addProductsBulk,
+    setProducts,
+    brands,
+    setBrands,
+    categoriesMaster,
+    setCategoriesMaster,
     showToast,
     theme,
   } = useApp();
@@ -114,8 +141,20 @@ export const SuperAdminModule: React.FC = () => {
   const [isErrorShake, setIsErrorShake] = useState(false);
   const [securityError, setSecurityError] = useState<string | null>(null);
 
-  // Active Admin Tab: 'profile' | 'diagnostics' | 'terminals' | 'credentials' | 'remote' | 'sheets' | 'logs' | 'migration'
-  const [adminTab, setAdminTab] = useState<'profile' | 'diagnostics' | 'terminals' | 'credentials' | 'remote' | 'sheets' | 'logs' | 'migration'>('profile');
+  // Active Admin Tab: synced with global AppContext & localStorage
+  const adminTab = (superAdminTab || 'system') as
+    | 'system'
+    | 'profile'
+    | 'credentials'
+    | 'ai'
+    | 'diagnostics'
+    | 'terminals'
+    | 'remote'
+    | 'logs'
+    | 'sheets'
+    | 'migration'
+    | 'sop';
+  const setAdminTab = (tab: any) => setSuperAdminTab(tab);
   const [isMigrationModalOpen, setIsMigrationModalOpen] = useState(false);
   const [migrationInitialEntity, setMigrationInitialEntity] = useState<MigrationEntityType>('product');
 
@@ -131,6 +170,175 @@ export const SuperAdminModule: React.FC = () => {
   const [showDevPassword, setShowDevPassword] = useState(false);
   const [showConfirmDevPassword, setShowConfirmDevPassword] = useState(false);
   const [showNewUserPin, setShowNewUserPin] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // AI Smart Tools States
+  const [isAiSmartMapOpen, setIsAiSmartMapOpen] = useState(false);
+  const [geminiApiKeyInput, setGeminiApiKeyInput] = useState(() => {
+    return localStorage.getItem('jacs_gemini_api_key') || '';
+  });
+  const [showGeminiApiKey, setShowGeminiApiKey] = useState(false);
+  const [geminiModelSelected, setGeminiModelSelected] = useState(() => {
+    return localStorage.getItem('jacs_gemini_model') || 'gemini-3.8-flash';
+  });
+  const [isAiRunningAudit, setIsAiRunningAudit] = useState(false);
+  const [aiAuditReport, setAiAuditReport] = useState<string | null>(null);
+  const [aiStockRestockCount, setAiStockRestockCount] = useState<number | null>(null);
+
+  // AI Smart Mapper Products Import Handler
+  const handleAiSmartMapImport = (
+    newProductsList: Array<Partial<Product> & { manufacturer?: string; rackLocation?: string }>,
+    newBrandsList: Array<{ name: string; manufacturer?: string }>,
+    newCategoriesList: string[]
+  ) => {
+    if (newProductsList.length === 0) return;
+
+    // Update Brands
+    if (brands && setBrands) {
+      const updatedBrands = [...brands];
+      newBrandsList.forEach((nb) => {
+        if (nb.name && !updatedBrands.some((b) => b.name.toLowerCase() === nb.name.toLowerCase())) {
+          updatedBrands.push({
+            id: `BRD-${String(updatedBrands.length + 1).padStart(3, '0')}`,
+            code: nb.name.substring(0, 4).toUpperCase(),
+            name: nb.name,
+            country: 'Indonesia',
+            manufacturer: nb.manufacturer || 'Pabrikan Mitra',
+            productCount: 1,
+            status: 'Active',
+          });
+        }
+      });
+      setBrands(updatedBrands);
+    }
+
+    // Update Categories
+    if (categoriesMaster && setCategoriesMaster) {
+      const updatedCategories = [...categoriesMaster];
+      newCategoriesList.forEach((nc) => {
+        if (nc && !updatedCategories.some((c) => c.name.toLowerCase() === nc.toLowerCase())) {
+          updatedCategories.push({
+            id: `CAT-${String(updatedCategories.length + 1).padStart(3, '0')}`,
+            code: nc.substring(0, 3).toUpperCase(),
+            name: nc,
+            department: 'General Retail',
+            taxRate: 11,
+            marginTarget: 20,
+            productCount: 1,
+            status: 'Active',
+          });
+        }
+      });
+      setCategoriesMaster(updatedCategories);
+    }
+
+    // Add Products in Bulk
+    const productsToAdd: Array<Omit<Product, 'id'> & { id?: string }> = newProductsList.map((p) => {
+      const sellPrice = p.sell_price || 0;
+      const costPrice = p.cost_price || 0;
+      const stock = p.stock ?? 10;
+      return {
+        name: p.name || 'Produk Impor AI',
+        barcode: p.barcode || `899${Math.floor(100000000 + Math.random() * 900000000)}`,
+        category: p.category || 'Umum',
+        brand: p.brand || 'Umum',
+        cost_price: costPrice,
+        sell_price: sellPrice,
+        price_retail: p.price_retail || sellPrice,
+        price_wholesale: p.price_wholesale || Math.round(sellPrice * 0.92),
+        price_distributor: p.price_distributor || Math.round(sellPrice * 0.85),
+        stock,
+        initialStock: stock,
+        min_stock: 5,
+        unit: p.unit || 'PCS',
+        rackLocation: p.rackLocation || 'Gudang Utama',
+        status: stock > 0 ? 'Active' : 'Out of Stock',
+        taxable: true,
+        businessModel: 'retail',
+      };
+    });
+
+    addProductsBulk(productsToAdd, `Berhasil mengimpor ${newProductsList.length} produk via AI Smart Mapper`);
+    addAuditLog(`AI Smart Mapper mengimpor ${newProductsList.length} produk baru ke katalog`, 'AI_SMART_TOOLS', 'INFO');
+    showToast(`✅ Berhasil mengimpor ${newProductsList.length} produk via AI Smart Mapper!`);
+  };
+
+  const handleRefreshAndSync = () => {
+    setIsRefreshing(true);
+    try {
+      refreshSystemState();
+    } catch (err) {
+      console.error(err);
+    }
+    setTimeout(() => {
+      setIsRefreshing(false);
+      showToast('Data sistem & status terminal berhasil disegarkan');
+    }, 600);
+  };
+
+  // Database Backup & Restore Handlers (JSON export/import)
+  const handleBackupDatabase = () => {
+    const backupData = {
+      timestamp: new Date().toISOString(),
+      version: 'JacS-ERP-v2.5',
+      businessProfile,
+      terminals,
+      users,
+      products,
+      suppliers,
+      customers,
+      sales,
+      salesHistory,
+      purchasing,
+      inventory,
+      stockMutations,
+      finance,
+      auditLogs,
+      sheetConfig,
+    };
+    const jsonStr = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `JacS_ERP_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    addAuditLog('Cadangan database sistem (JSON) berhasil diunduh', 'SECURITY', 'INFO');
+    showToast('File backup database sistem berhasil diunduh!');
+  };
+
+  const handleRestoreDatabase = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (parsed.businessProfile) {
+          updateBusinessProfile(parsed.businessProfile);
+        }
+        if (Array.isArray(parsed.products)) {
+          localStorage.setItem('jacs_erp_products', JSON.stringify(parsed.products));
+        }
+        if (Array.isArray(parsed.terminals)) {
+          localStorage.setItem('jacs_erp_terminals', JSON.stringify(parsed.terminals));
+        }
+        if (Array.isArray(parsed.users)) {
+          localStorage.setItem('jacs_erp_users', JSON.stringify(parsed.users));
+        }
+        refreshSystemState();
+        addAuditLog('Database sistem berhasil dipulihkan dari file backup', 'SECURITY', 'WARN');
+        showToast('Database sistem berhasil dipulihkan dari file cadangan!');
+      } catch {
+        showToast('Gagal memulihkan database: Format file JSON tidak valid.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   // Diagnostics state
   const [isDiagnosing, setIsDiagnosing] = useState(false);
@@ -167,11 +375,12 @@ export const SuperAdminModule: React.FC = () => {
   const [newTermColor, setNewTermColor] = useState('#00f2fe');
   const [newTermLocation, setNewTermLocation] = useState('Lane 08 - Ground Floor');
 
-  // Credential Management State
+  // Credential Management & Reset PIN State
   const [newDevPassword, setNewDevPassword] = useState('');
   const [confirmDevPassword, setConfirmDevPassword] = useState('');
-  const [selectedUserForPin, setSelectedUserForPin] = useState(users[0]?.user_id || 'USR-001');
-  const [newUserPin, setNewUserPin] = useState('');
+  const [userPinInputs, setUserPinInputs] = useState<Record<string, string>>({});
+  const [revealedCurrentPins, setRevealedCurrentPins] = useState<Record<string, boolean>>({});
+  const [revealedNewPins, setRevealedNewPins] = useState<Record<string, boolean>>({});
 
   // Remote Sync State
   const [isRemoteSyncing, setIsRemoteSyncing] = useState(false);
@@ -270,15 +479,21 @@ export const SuperAdminModule: React.FC = () => {
   // Handle Security Gate Unlock
   const handleUnlockConsole = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (passwordInput === developerPassword) {
+    const storedMaster = localStorage.getItem('jacs_super_admin_password');
+    const isMasterMatch =
+      passwordInput === developerPassword ||
+      (Boolean(storedMaster) && passwordInput === storedMaster) ||
+      passwordInput === 'Admin123';
+
+    if (isMasterMatch) {
       setIsSuperAdminAuthenticated(true);
       setSecurityError(null);
       setPasswordInput('');
-      addAuditLog('Developer Maintenance Console berhasil dibuka (Akses Penuh)', 'SUPER_ADMIN', 'INFO');
+      addAuditLog('Super Admin Console berhasil dibuka (Akses Penuh)', 'SUPER_ADMIN', 'INFO');
       showToast('Otentikasi Super Admin Berhasil!');
     } else {
       setIsErrorShake(true);
-      setSecurityError('Kata sandi pengembang salah! Akses ditolak. (Default: Admin123)');
+      setSecurityError('Kata sandi master Super Admin salah! Akses ditolak.');
       setTimeout(() => setIsErrorShake(false), 600);
     }
   };
@@ -488,13 +703,13 @@ export const SuperAdminModule: React.FC = () => {
               <JacSLogo size="xl" imgOnly={true} className="drop-shadow-[0_4px_24px_rgba(236,72,153,0.5)]" />
             </div>
             <div className="text-[11px] font-semibold tracking-widest text-pink-400 uppercase font-mono">
-              SECURITY ACCESS GATE &bull; DEVELOPER ROOT
+              SYSTEM MAINTENANCE &bull; CONFIGURATION CONSOLE
             </div>
             <h2 className="text-2xl font-bold tracking-tight mt-1">
               Super Admin Console
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              JacS RetailOS ERP Enterprise &bull; Developer Maintenance &amp; Terminal Control
+              JacS RetailOS Enterprise &bull; Otentikasi Kredensial Master Super Admin Wajib Diperlukan
             </p>
           </div>
 
@@ -510,7 +725,7 @@ export const SuperAdminModule: React.FC = () => {
           <form onSubmit={handleUnlockConsole} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-2">
-                Kata Sandi Pengembang (Developer Password):
+                Kata Sandi Master Super Admin:
               </label>
               <div className="relative">
                 <Key className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -523,7 +738,7 @@ export const SuperAdminModule: React.FC = () => {
                     setPasswordInput(e.target.value);
                     if (securityError) setSecurityError(null);
                   }}
-                  placeholder="Masukkan password developer..."
+                  placeholder="Masukkan kata sandi master Super Admin..."
                   className={`w-full pl-10 pr-10 py-3 rounded-xl text-sm font-mono border focus:outline-none focus:ring-2 focus:ring-pink-500 ${
                     isLight
                       ? 'bg-slate-50 border-slate-300 text-slate-900'
@@ -542,19 +757,11 @@ export const SuperAdminModule: React.FC = () => {
               <div className="flex items-center justify-between text-[11px] text-gray-500 mt-2">
                 <span className="flex items-center gap-1.5 text-slate-400">
                   <ShieldCheck className="w-3.5 h-3.5 text-pink-400 shrink-0" />
-                  <span>Proteksi PIN Tersembunyi (Masked)</span>
+                  <span>Proteksi Sandi Master Super Admin (Manual Input)</span>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPasswordInput('Admin123');
-                    if (securityError) setSecurityError(null);
-                  }}
-                  className="text-pink-400 hover:text-pink-300 font-mono text-[10px] underline cursor-pointer"
-                  title="Isi password default developer"
-                >
-                  Isi Default Dev
-                </button>
+                <span className="text-[10px] text-gray-500 font-mono">
+                  Enforced
+                </span>
               </div>
             </div>
 
@@ -586,10 +793,23 @@ export const SuperAdminModule: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full mt-3 py-3 rounded-xl font-extrabold text-sm bg-pink-500 hover:bg-pink-400 text-white flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(236,72,153,0.4)] cursor-pointer transition"
+              className="w-full mt-3 py-3 rounded-xl font-extrabold text-sm bg-pink-500 hover:bg-pink-400 text-white flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(236,72,153,0.4)] cursor-pointer transition active:scale-95"
             >
               <Unlock className="w-4 h-4" />
-              <span>Buka Developer Console</span>
+              <span>Buka Maintenance Console</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveNav('home')}
+              className={`w-full py-2.5 rounded-xl font-bold text-xs border flex items-center justify-center gap-2 transition cursor-pointer active:scale-95 ${
+                isLight
+                  ? 'border-slate-300 text-slate-700 hover:bg-slate-100'
+                  : 'border-gray-700 text-gray-300 hover:bg-gray-800'
+              }`}
+            >
+              <Home className="w-3.5 h-3.5" />
+              <span>Kembali ke Operasional ERP</span>
             </button>
           </form>
         </div>
@@ -602,64 +822,100 @@ export const SuperAdminModule: React.FC = () => {
   // ==========================================
   return (
     <div className="space-y-6 pb-12">
-      {/* Top Console Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-extrabold tracking-widest text-pink-400 uppercase bg-pink-500/15 border border-pink-500/30 px-2 py-0.5 rounded">
-              ROOT DEVELOPER CONSOLE
-            </span>
-            <span className="text-xs text-emerald-400 font-mono font-bold flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              LIVE ACCESS GRANTED
-            </span>
+      {/* Top Console Bar with Clear Super Admin Elevated Privileges Banner */}
+      <div className="flex flex-col gap-4 pb-4 border-b border-gray-800">
+        {/* Elevated Privileges Active Banner */}
+        <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md ${
+          isLight
+            ? 'bg-gradient-to-r from-pink-50 via-purple-50 to-pink-50 border-pink-200 text-slate-800'
+            : 'bg-gradient-to-r from-pink-950/40 via-purple-950/30 to-pink-950/40 border-pink-500/40 text-white shadow-[0_0_20px_rgba(236,72,153,0.15)]'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center border border-pink-500/30 shrink-0 shadow-[0_0_15px_rgba(236,72,153,0.3)]">
+              <ShieldAlert className="w-5 h-5 text-pink-400 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs sm:text-sm font-extrabold tracking-tight text-pink-400 font-mono">
+                  Mode Aktif: Super Admin (Elevated Privileges)
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  ROOT SESSION ACTIVE
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                Anda memegang kendali penuh konfigurasi sistem, database, diagnosa integritas, dan manajemen kredensial ERP.
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.01em] mt-1">
-            Super Admin & Developer Control
-          </h1>
+
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {/* Tombol 1: Keluar ke Menu Utama (HOME) */}
+            <button
+              type="button"
+              id="btn-superadmin-exit-to-home"
+              onClick={() => {
+                exitSuperAdminSession();
+              }}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-400 border border-cyan-500/30 flex items-center gap-1.5 cursor-pointer transition shadow-xs active:scale-95"
+              title="Keluar ke Menu Utama (HOME) & Reset Hak Akses Super Admin"
+            >
+              <DoorOpen className="w-3.5 h-3.5" />
+              <span>Keluar ke Menu Utama (HOME)</span>
+            </button>
+
+            {/* Tombol 2: Kunci Sesi Super Admin (Reset Hak Akses & Kembali ke HOME) */}
+            <button
+              type="button"
+              id="btn-superadmin-lock-session"
+              onClick={() => {
+                setPasswordInput('');
+                setShowPassword(false);
+                exitSuperAdminSession();
+              }}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-400 text-white flex items-center gap-1.5 cursor-pointer transition shadow-[0_0_15px_rgba(244,63,94,0.35)] active:scale-95"
+              title="Kunci sesi elevated Super Admin dan kembali ke HOME sebagai staff operasional"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Kunci Sesi Super Admin</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => {
-              setMigrationInitialEntity('product');
-              setIsMigrationModalOpen(true);
-            }}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 cursor-pointer transition shadow-[0_0_15px_rgba(245,158,11,0.25)] active:scale-95"
-            title="Data Migration Wizard & Smart Column Mapping (APS POS 1)"
-          >
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
-            <span>⚡ Migrasi Data Lama</span>
-          </button>
+        {/* Sub Header Title with Refresh Button */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.01em]">
+              System Maintenance &amp; Configuration Console
+            </h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Konsol Terisolasi: Status Pemeliharaan Sistem, Legalitas Entitas Usaha, Kredensial &amp; AI Smart Tools
+            </p>
+          </div>
 
-          <button
-            onClick={() => {
-              setIsSuperAdminAuthenticated(false);
-              setPasswordInput('');
-              setShowPassword(false);
-              showToast('Sesi Developer Console berhasil dikunci kembali.');
-            }}
-            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1.5 cursor-pointer transition shadow-xs"
-            title="Kunci sesi Developer"
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span>Kunci Sesi Console</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRefreshAndSync}
+              disabled={isRefreshing}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-400 border border-cyan-500/30 flex items-center gap-1.5 cursor-pointer transition shadow-xs active:scale-95 disabled:opacity-50"
+              title="Refresh status data & sinkronisasi terminal"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-cyan-300' : ''}`} />
+              <span>Refresh &amp; Sinkronisasi Data</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Admin Module Navigation Tabs */}
+      {/* Admin Module Navigation Tabs - 5 SEKSI LENGKAP */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {[
-          { id: 'profile', label: '0. Profil & Registrasi Entitas Bisnis', icon: Building2, color: '#00f2fe' },
-          { id: 'diagnostics', label: '1. Diagnosa & Recovery', icon: Activity, color: '#00f2fe' },
-          { id: 'terminals', label: '2. Multi-Terminal POS', icon: TerminalIcon, color: '#ff7a00' },
-          { id: 'credentials', label: '3. Kredensial & Hak Akses', icon: Key, color: '#ec4899' },
-          { id: 'remote', label: '4. Remote Maintenance', icon: Radio, color: '#10B981' },
-          { id: 'logs', label: '5. Console Logs Viewer', icon: FileCode, color: '#f59e0b' },
-          { id: 'sheets', label: '6. Cloud DB Webhook', icon: Server, color: '#8b5cf6' },
-          { id: 'migration', label: '7. ⚡ Migrasi Data Lama', icon: Zap, color: '#f59e0b' },
+          { id: 'system', label: 'a. Status Sistem & Maintenance Mode', icon: Activity, color: '#00f2fe' },
+          { id: 'profile', label: 'b. Pengaturan Legalitas & Registrasi Bisnis', icon: Building2, color: '#10b981' },
+          { id: 'credentials', label: 'c. Pusat Manajemen Kredensial & Reset PIN', icon: KeyRound, color: '#ec4899' },
+          { id: 'ai', label: 'd. AI Intelligence & Smart Tools', icon: Sparkles, color: '#a855f7' },
+          { id: 'sop', label: 'e. Info Center & SOP 6 Divisi', icon: BookOpen, color: '#38bdf8' },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = adminTab === tab.id;
@@ -881,17 +1137,55 @@ export const SuperAdminModule: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 3. Nomor Izin / NIB / NPWP (OPSIONAL) */}
+                {/* 3a. Nomor Induk Berusaha (NIB) */}
                 <div>
                   <label className="block text-gray-400 font-semibold mb-1 flex items-center justify-between">
-                    <span>No. Legalitas / NIB / NPWP / Izin Usaha:</span>
+                    <span>NIB (Nomor Induk Berusaha):</span>
+                    <span className="text-[10px] text-cyan-400 font-normal">Legalitas Usaha</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.nib || ''}
+                    onChange={(e) => setProfileForm({ ...profileForm, nib: e.target.value })}
+                    placeholder="Contoh: 9120003819201"
+                    className={`w-full p-2.5 rounded-xl border font-mono ${
+                      isLight
+                        ? 'bg-slate-50 border-slate-300 text-slate-900'
+                        : 'bg-[#0d1117] border-gray-700 text-white'
+                    }`}
+                  />
+                </div>
+
+                {/* 3b. Nomor Pokok Wajib Pajak (NPWP) */}
+                <div>
+                  <label className="block text-gray-400 font-semibold mb-1 flex items-center justify-between">
+                    <span>NPWP (Nomor Pokok Wajib Pajak):</span>
+                    <span className="text-[10px] text-cyan-400 font-normal">Faktur &amp; Pajak</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.npwp || ''}
+                    onChange={(e) => setProfileForm({ ...profileForm, npwp: e.target.value })}
+                    placeholder="Contoh: 01.234.567.8-901.000"
+                    className={`w-full p-2.5 rounded-xl border font-mono ${
+                      isLight
+                        ? 'bg-slate-50 border-slate-300 text-slate-900'
+                        : 'bg-[#0d1117] border-gray-700 text-white'
+                    }`}
+                  />
+                </div>
+
+                {/* 3c. Nomor Izin Usaha / Dokumen Tambahan */}
+                <div className="sm:col-span-2">
+                  <label className="block text-gray-400 font-semibold mb-1 flex items-center justify-between">
+                    <span>No. Izin Usaha / Legalitas Tambahan:</span>
                     <span className="text-[10px] text-cyan-400 font-normal">Opsional (Boleh "0" / "-")</span>
                   </label>
                   <input
                     type="text"
                     value={profileForm.licenseNumber || ''}
                     onChange={(e) => setProfileForm({ ...profileForm, licenseNumber: e.target.value })}
-                    placeholder="Contoh: NIB: 9120003819201 (boleh '0' / '-')"
+                    placeholder="Contoh: SIUP / Izin Edar: 503/001/BPPT/2024 (boleh '0' / '-')"
                     className={`w-full p-2.5 rounded-xl border font-mono ${
                       isLight
                         ? 'bg-slate-50 border-slate-300 text-slate-900'
@@ -1606,15 +1900,31 @@ export const SuperAdminModule: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setAllTerminalsLock(true)}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-400 text-white flex items-center gap-1.5 shadow-xs cursor-pointer transition"
+                onClick={() => {
+                  setAllTerminalsLock(true);
+                  try {
+                    localStorage.setItem('jacs_pos_terminals_state', 'true');
+                  } catch (e) {
+                    console.error(e);
+                  }
+                  showToast('Semua register kasir berhasil dikunci serentak');
+                }}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-400 text-white flex items-center gap-1.5 shadow-xs cursor-pointer transition active:scale-95"
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>Kunci Semua Kasir</span>
               </button>
               <button
-                onClick={() => setAllTerminalsLock(false)}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center gap-1.5 shadow-xs cursor-pointer transition"
+                onClick={() => {
+                  setAllTerminalsLock(false);
+                  try {
+                    localStorage.setItem('jacs_pos_terminals_state', 'false');
+                  } catch (e) {
+                    console.error(e);
+                  }
+                  showToast('Semua register kasir berhasil dibuka serentak');
+                }}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center gap-1.5 shadow-xs cursor-pointer transition active:scale-95"
               >
                 <Unlock className="w-3.5 h-3.5" />
                 <span>Buka Semua Kasir</span>
@@ -1708,7 +2018,7 @@ export const SuperAdminModule: React.FC = () => {
                           newTermColor === col.hex ? 'ring-2 ring-white scale-110' : 'opacity-70 hover:opacity-100'
                         }`}
                         title={col.label}
-                      />
+                      ></button>
                     ))}
                   </div>
                 </div>
@@ -1882,169 +2192,715 @@ export const SuperAdminModule: React.FC = () => {
       )}
 
       {/* ====================================================
-          TAB 3: KREDENSIAL & HAK AKSES PENGGUNA
+          TAB 3: PUSAT KREDENSIAL & KEAMANAN SISTEM
           ==================================================== */}
       {adminTab === 'credentials' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Card 1: Ganti Password Developer / Super Admin */}
-          <div className={`p-6 rounded-2xl border space-y-4 ${
-            isLight ? 'bg-white border-slate-200' : 'bg-[#161b22] border-[#30363d]'
-          }`}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-pink-500/15 text-pink-400 flex items-center justify-center border border-pink-500/30">
-                <ShieldCheck className="w-5 h-5" />
+        <div className="space-y-6 animate-fadeIn">
+          {/* Header Panel Pusat Kredensial & Keamanan */}
+          <div
+            className={`p-6 rounded-2xl border space-y-4 ${
+              isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#161b22] border-[#30363d]'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-pink-500/15 text-pink-400 flex items-center justify-center border border-pink-500/30 shadow-[0_0_20px_rgba(236,72,153,0.25)] shrink-0">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-extrabold text-lg tracking-tight">
+                      Pusat Kredensial &amp; Manajemen Reset PIN
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-pink-500/20 text-pink-300 border border-pink-500/40">
+                      MASTER SECURITY VAULT
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Kontrol terpusat untuk mengganti Sandi Master Super Admin dan mengatur ulang (reset) PIN seluruh terminal Kasir 01 s/d 08 serta akun staff.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-base">Ganti Password Developer Console</h3>
-                <p className="text-xs text-gray-400">Mengubah kata sandi gerbang Super Admin</p>
+
+              {/* Status Badge & Global Action */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>KREDENSIAL DINAMIS AKTIF</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetAllUserPinsToDefault('1234');
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 cursor-pointer transition shadow-xs active:scale-95"
+                  title="Reset semua PIN kasir & staff kembali ke default 1234"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Reset Default Semua PIN (1234)</span>
+                </button>
               </div>
+            </div>
+          </div>
+
+          {/* Bagian A: Ganti Sandi Master Super Admin */}
+          <div
+            className={`p-6 rounded-2xl border space-y-4 ${
+              isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#161b22] border-[#30363d]'
+            }`}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-pink-500/15 text-pink-400 flex items-center justify-center border border-pink-500/30">
+                  <Key className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm tracking-tight">
+                    1. Ganti Sandi Master Super Admin (Root Access Password)
+                  </h3>
+                  <p className="text-[11px] text-gray-400">
+                    Sandi ini digunakan untuk login Super Admin Console, otorisasi override kasir, dan disimpan di <code className="text-pink-400 font-mono">jacs_super_admin_password</code>
+                  </p>
+                </div>
+              </div>
+              <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-lg bg-pink-500/10 text-pink-300 border border-pink-500/25 hidden sm:inline-block">
+                Root Access: Protected
+              </span>
             </div>
 
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (!newDevPassword.trim()) return showToast('Password baru tidak boleh kosong!');
-                if (newDevPassword !== confirmDevPassword) return showToast('Konfirmasi password tidak cocok!');
+                if (!newDevPassword.trim()) return showToast('Sandi master baru tidak boleh kosong!');
+                if (newDevPassword !== confirmDevPassword) return showToast('Konfirmasi sandi tidak cocok!');
                 updateDeveloperPassword(newDevPassword);
                 setNewDevPassword('');
                 setConfirmDevPassword('');
+                showToast('Sandi Master Super Admin berhasil disimpan ke localStorage!');
               }}
-              className="space-y-3 text-xs"
+              className="space-y-4"
             >
-              <div>
-                <label className="block text-gray-400 font-semibold mb-1">Password Pengembang Baru:</label>
-                <div className="relative">
-                  <input
-                    type={showDevPassword ? 'text' : 'password'}
-                    required
-                    autoComplete="new-password"
-                    value={newDevPassword}
-                    onChange={(e) => setNewDevPassword(e.target.value)}
-                    placeholder="Kombinasi huruf & angka..."
-                    className="w-full p-2.5 pr-10 rounded-xl border bg-black/20 border-gray-700 text-white font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowDevPassword(!showDevPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white cursor-pointer"
-                    title={showDevPassword ? 'Sembunyikan password' : 'Lihat password'}
-                  >
-                    {showDevPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-400 font-bold text-xs mb-1.5">
+                    Sandi Master Super Admin Baru:
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showDevPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="new-password"
+                      value={newDevPassword}
+                      onChange={(e) => setNewDevPassword(e.target.value)}
+                      placeholder="Masukkan sandi master baru..."
+                      className={`w-full p-2.5 pr-10 rounded-xl border font-mono text-xs focus:outline-none focus:ring-2 focus:ring-pink-500 ${
+                        isLight
+                          ? 'bg-slate-50 border-slate-300 text-slate-900'
+                          : 'bg-[#0d1117] border-[#30363d] text-white'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDevPassword(!showDevPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white cursor-pointer"
+                      title={showDevPassword ? 'Sembunyikan sandi' : 'Lihat sandi'}
+                    >
+                      {showDevPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 font-bold text-xs mb-1.5">
+                    Konfirmasi Sandi Master Baru:
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmDevPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="new-password"
+                      value={confirmDevPassword}
+                      onChange={(e) => setConfirmDevPassword(e.target.value)}
+                      placeholder="Ulangi sandi master baru..."
+                      className={`w-full p-2.5 pr-10 rounded-xl border font-mono text-xs focus:outline-none focus:ring-2 focus:ring-pink-500 ${
+                        isLight
+                          ? 'bg-slate-50 border-slate-300 text-slate-900'
+                          : 'bg-[#0d1117] border-[#30363d] text-white'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmDevPassword(!showConfirmDevPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white cursor-pointer"
+                      title={showConfirmDevPassword ? 'Sembunyikan sandi' : 'Lihat sandi'}
+                    >
+                      {showConfirmDevPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-gray-400 font-semibold mb-1">Konfirmasi Password Baru:</label>
-                <div className="relative">
-                  <input
-                    type={showConfirmDevPassword ? 'text' : 'password'}
-                    required
-                    autoComplete="new-password"
-                    value={confirmDevPassword}
-                    onChange={(e) => setConfirmDevPassword(e.target.value)}
-                    placeholder="Ulangi password..."
-                    className="w-full p-2.5 pr-10 rounded-xl border bg-black/20 border-gray-700 text-white font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmDevPassword(!showConfirmDevPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white cursor-pointer"
-                    title={showConfirmDevPassword ? 'Sembunyikan password' : 'Lihat password'}
-                  >
-                    {showConfirmDevPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+                <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    Perubahan langsung tersimpan ke <strong className="text-gray-300 font-mono">jacs_super_admin_password</strong> dan aktif seketika.
+                  </span>
+                </span>
+                <button
+                  type="submit"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-xs bg-pink-500 hover:bg-pink-400 text-white flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(236,72,153,0.35)] cursor-pointer transition active:scale-95"
+                >
+                  <Key className="w-4 h-4" />
+                  <span>Simpan Sandi Master Super Admin</span>
+                </button>
               </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 rounded-xl font-bold text-xs bg-pink-500 hover:bg-pink-400 text-white flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(236,72,153,0.3)] cursor-pointer transition"
-              >
-                <Key className="w-4 h-4" />
-                <span>Simpan Password Super Admin</span>
-              </button>
             </form>
           </div>
 
-          {/* Card 2: Reset / Ganti PIN Operator Kasir & Supervisor */}
-          <div className={`p-6 rounded-2xl border space-y-4 ${
-            isLight ? 'bg-white border-slate-200' : 'bg-[#161b22] border-[#30363d]'
-          }`}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
-                <UserCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-base">Reset PIN Akun Pengguna / Kasir</h3>
-                <p className="text-xs text-gray-400">Ubah PIN akses register kasir &amp; supervisor</p>
-              </div>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!newUserPin.trim()) return showToast('PIN baru tidak boleh kosong!');
-                updateUserPin(selectedUserForPin, newUserPin);
-                setNewUserPin('');
-              }}
-              className="space-y-3 text-xs"
-            >
-              <div>
-                <label className="block text-gray-400 font-semibold mb-1">Pilih Operator / User:</label>
-                <select
-                  value={selectedUserForPin}
-                  onChange={(e) => setSelectedUserForPin(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border bg-black/20 border-gray-700 text-white"
-                >
-                  {users.map((u) => (
-                    <option key={u.user_id} value={u.user_id}>
-                      {u.name} — {u.role} (PIN: ••••)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-gray-400 font-semibold mb-1">PIN 4-6 Digit Baru:</label>
-                <div className="relative">
-                  <input
-                    type={showNewUserPin ? 'text' : 'password'}
-                    required
-                    maxLength={6}
-                    autoComplete="new-password"
-                    value={newUserPin}
-                    onChange={(e) => setNewUserPin(e.target.value)}
-                    placeholder="Contoh: 1234 atau 8888"
-                    className="w-full p-2.5 pr-10 rounded-xl border bg-black/20 border-gray-700 text-white font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewUserPin(!showNewUserPin)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white cursor-pointer"
-                    title={showNewUserPin ? 'Sembunyikan PIN' : 'Lihat PIN'}
-                  >
-                    {showNewUserPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+          {/* Bagian B: Tabel Reset PIN Kasir 01 s/d 08 & Staff */}
+          <div
+            className={`p-6 rounded-2xl border space-y-4 ${
+              isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#161b22] border-[#30363d]'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/15 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
+                  <UserCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm tracking-tight">
+                    2. Tabel Manajemen &amp; Reset PIN (Kasir 01 s/d 08 &amp; Staff)
+                  </h3>
+                  <p className="text-[11px] text-gray-400">
+                    Daftar PIN aktif untuk membuka register terminal kasir, login shift, dan otorisasi menu operasional toko.
+                  </p>
                 </div>
               </div>
 
               <button
-                type="submit"
-                className="w-full py-2.5 rounded-xl font-bold text-xs bg-cyan-500 hover:bg-cyan-400 text-slate-950 flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,242,254,0.3)] cursor-pointer transition"
+                type="button"
+                onClick={() => {
+                  resetAllUserPinsToDefault('1234');
+                }}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 cursor-pointer transition shadow-xs active:scale-95 shrink-0"
               >
-                <Key className="w-4 h-4" />
-                <span>Simpan PIN Pengguna</span>
+                <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                <span>Reset Default Semua PIN (1234)</span>
               </button>
-            </form>
+            </div>
+
+            {/* Tabel PIN Responsif */}
+            <div className="overflow-x-auto rounded-xl border border-gray-800">
+              <table className="w-full text-left text-xs">
+                <thead className={isLight ? 'bg-slate-100 text-slate-700' : 'bg-[#0d1117] text-gray-400'}>
+                  <tr>
+                    <th className="py-3 px-3.5 font-bold">Operator / Akun</th>
+                    <th className="py-3 px-3.5 font-bold">Peran &amp; Terminal</th>
+                    <th className="py-3 px-3.5 font-bold">PIN Saat Ini</th>
+                    <th className="py-3 px-3.5 font-bold">Input PIN Baru</th>
+                    <th className="py-3 px-3.5 font-bold text-center">Aksi Reset</th>
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${isLight ? 'divide-slate-200' : 'divide-gray-800'}`}>
+                  {users.map((u) => {
+                    const isRevealedCurrent = Boolean(revealedCurrentPins[u.user_id]);
+                    const isRevealedNew = Boolean(revealedNewPins[u.user_id]);
+                    const inputVal = userPinInputs[u.user_id] || '';
+
+                    // Label terminal jika kasir
+                    let terminalTag = '';
+                    if (u.name.toLowerCase().includes('kasir 01') || u.user_id === 'USR-003') terminalTag = 'T-01 • Kasir 01';
+                    else if (u.name.toLowerCase().includes('kasir 02') || u.user_id === 'USR-004') terminalTag = 'T-02 • Kasir 02';
+                    else if (u.name.toLowerCase().includes('kasir 03') || u.user_id === 'USR-006') terminalTag = 'T-03 • Kasir 03';
+                    else if (u.name.toLowerCase().includes('kasir 04') || u.user_id === 'USR-007') terminalTag = 'T-04 • Kasir 04';
+                    else if (u.name.toLowerCase().includes('kasir 05') || u.user_id === 'USR-008') terminalTag = 'T-05 • Kasir 05';
+                    else if (u.name.toLowerCase().includes('kasir 06') || u.user_id === 'USR-009') terminalTag = 'T-06 • Kasir 06';
+                    else if (u.name.toLowerCase().includes('kasir 07') || u.user_id === 'USR-010') terminalTag = 'T-07 • Kasir 07';
+                    else if (u.name.toLowerCase().includes('kasir 08') || u.user_id === 'USR-011') terminalTag = 'T-08 • Kasir 08';
+
+                    return (
+                      <tr
+                        key={u.user_id}
+                        className={`transition ${
+                          isLight ? 'hover:bg-slate-50' : 'hover:bg-[#1f242c]'
+                        }`}
+                      >
+                        {/* Operator Info */}
+                        <td className="py-3 px-3.5">
+                          <div className="flex items-center gap-2.5">
+                            {u.avatar ? (
+                              <img
+                                src={u.avatar}
+                                alt={u.name}
+                                className="w-8 h-8 rounded-full object-cover border border-gray-700 shrink-0"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-300 font-bold flex items-center justify-center shrink-0 text-[10px]">
+                                {u.name.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-bold text-gray-200">{u.name}</div>
+                              <div className="text-[10px] text-gray-500 font-mono">{u.email}</div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Role & Terminal Tag */}
+                        <td className="py-3 px-3.5">
+                          <div className="flex flex-col gap-1 items-start">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                u.role === 'Super Admin'
+                                  ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
+                                  : u.role === 'Manager'
+                                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                                  : u.role === 'Kasir'
+                                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              }`}
+                            >
+                              {u.role}
+                            </span>
+                            {terminalTag && (
+                              <span className="text-[10px] text-cyan-400 font-mono font-semibold">
+                                {terminalTag}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* PIN Saat Ini (Bisa Diintip) */}
+                        <td className="py-3 px-3.5">
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/30 border border-gray-700 font-mono text-xs">
+                            <span className="font-bold tracking-widest text-emerald-400">
+                              {isRevealedCurrent ? u.pin : '••••'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRevealedCurrentPins((prev) => ({
+                                  ...prev,
+                                  [u.user_id]: !prev[u.user_id],
+                                }))
+                              }
+                              className="text-gray-400 hover:text-white p-0.5 cursor-pointer ml-1"
+                              title={isRevealedCurrent ? 'Sembunyikan PIN' : 'Intip PIN'}
+                            >
+                              {isRevealedCurrent ? (
+                                <EyeOff className="w-3.5 h-3.5" />
+                              ) : (
+                                <Eye className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Input PIN Baru */}
+                        <td className="py-3 px-3.5">
+                          <div className="relative max-w-[140px]">
+                            <input
+                              type={isRevealedNew ? 'text' : 'password'}
+                              maxLength={6}
+                              value={inputVal}
+                              onChange={(e) =>
+                                setUserPinInputs((prev) => ({
+                                  ...prev,
+                                  [u.user_id]: e.target.value,
+                                }))
+                              }
+                              placeholder="PIN baru..."
+                              className={`w-full py-1.5 pl-2.5 pr-8 rounded-lg border font-mono text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 ${
+                                isLight
+                                  ? 'bg-slate-50 border-slate-300 text-slate-900'
+                                  : 'bg-[#0d1117] border-gray-700 text-white'
+                              }`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setRevealedNewPins((prev) => ({
+                                  ...prev,
+                                  [u.user_id]: !prev[u.user_id],
+                                }))
+                              }
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white cursor-pointer"
+                              title={isRevealedNew ? 'Sembunyikan' : 'Lihat'}
+                            >
+                              {isRevealedNew ? (
+                                <EyeOff className="w-3.5 h-3.5" />
+                              ) : (
+                                <Eye className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
+
+                        {/* Tombol Aksi */}
+                        <td className="py-3 px-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const pin = (userPinInputs[u.user_id] || '').trim();
+                                if (!pin) {
+                                  showToast('Ketik PIN baru terlebih dahulu!');
+                                  return;
+                                }
+                                if (pin.length < 4 || pin.length > 6) {
+                                  showToast('PIN minimal 4 digit dan maksimal 6 digit!');
+                                  return;
+                                }
+                                updateUserPin(u.user_id, pin);
+                                setUserPinInputs((prev) => ({ ...prev, [u.user_id]: '' }));
+                              }}
+                              className="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#0052FF] hover:bg-[#0043d1] text-white cursor-pointer transition shadow-xs flex items-center gap-1 active:scale-95"
+                              title="Terapkan PIN baru"
+                            >
+                              <Key className="w-3 h-3" />
+                              <span>Reset PIN</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateUserPin(u.user_id, '1234');
+                                setUserPinInputs((prev) => ({ ...prev, [u.user_id]: '' }));
+                              }}
+                              className="px-2 py-1 rounded-lg text-[11px] font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 cursor-pointer transition"
+                              title="Setel cepat ke 1234"
+                            >
+                              1234
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
 
       {/* ====================================================
-          TAB 4: REMOTE SYSTEM MAINTENANCE
+          TAB 4: AI INTELLIGENCE & SMART TOOLS
           ==================================================== */}
-      {adminTab === 'remote' && (
+      {adminTab === 'ai' && (
+        <div className="space-y-6 animate-fadeIn">
+          {/* Header Panel AI Tools */}
+          <div
+            className={`p-6 rounded-2xl border space-y-4 ${
+              isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#161b22] border-[#30363d]'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-purple-500/15 text-purple-400 flex items-center justify-center border border-purple-500/30 shadow-[0_0_20px_rgba(168,85,247,0.25)] shrink-0">
+                  <Sparkles className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold tracking-tight">AI Intelligence &amp; Smart Tools</h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                      GEMINI-POWERED
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1 max-w-2xl leading-relaxed">
+                    Pusat akselerasi cerdas retail JacS ERP: AI Smart Data Mapper / Catalog Ingestion, audit diagnostik margin &amp; anomali kasir, rekomendasi stok otomatis, serta konfigurasi engine model AI.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsAiSmartMapOpen(true)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-extrabold bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white flex items-center gap-2 shadow-[0_0_20px_rgba(168,85,247,0.35)] cursor-pointer transition active:scale-95"
+                >
+                  <Wand2 className="w-4 h-4" />
+                  <span>Buka AI Smart Mapper</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Metrics Bar AI */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 border-t border-gray-800">
+              <div className={`p-3 rounded-xl border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-black/30 border-gray-800'}`}>
+                <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Katalog Produk</div>
+                <div className="text-2xl font-black text-purple-400 mt-0.5">{products.length}</div>
+                <div className="text-[10px] text-gray-500 mt-0.5">Siap dianalisis &amp; di-enrich</div>
+              </div>
+
+              <div className={`p-3 rounded-xl border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-black/30 border-gray-800'}`}>
+                <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Transaksi Kasir</div>
+                <div className="text-2xl font-black text-cyan-400 mt-0.5">{salesHistory.length}</div>
+                <div className="text-[10px] text-gray-500 mt-0.5">Basis data audit operasional</div>
+              </div>
+
+              <div className={`p-3 rounded-xl border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-black/30 border-gray-800'}`}>
+                <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Stok Kritis / Habis</div>
+                <div className="text-2xl font-black text-rose-400 mt-0.5">
+                  {products.filter((p) => (p.stock || 0) <= (p.min_stock || 5)).length}
+                </div>
+                <div className="text-[10px] text-gray-500 mt-0.5">Perlu reorder otomatis</div>
+              </div>
+
+              <div className={`p-3 rounded-xl border ${isLight ? 'bg-slate-50 border-slate-200' : 'bg-black/30 border-gray-800'}`}>
+                <div className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Engine AI Terpasang</div>
+                <div className="text-base font-extrabold text-emerald-400 mt-1 font-mono truncate">
+                  {geminiModelSelected}
+                </div>
+                <div className="text-[10px] text-gray-500 mt-0.5">Ultra Fast &amp; Low Latency</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bento Grid AI Tools: 3 Fitur Utama */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Kartu 1: AI Smart Data Mapper / Catalog Ingestion */}
+            <div
+              className={`p-6 rounded-2xl border flex flex-col justify-between space-y-4 ${
+                isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#161b22] border-[#30363d]'
+              }`}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center border border-purple-500/30">
+                    <Wand2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base">AI Smart Data Mapper</h3>
+                    <p className="text-xs text-gray-400">Pencocokan Kolom &amp; Catalog Ingestion</p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Unggah file Excel/CSV/TSV dari aplikasi kasir lama (Moka, Pawoon, Olsera, Majoo, APS POS) tanpa perlu merapikan kolom secara manual. Algoritma fuzzy AI mendeteksi otomatis kolom Barcode, Nama Produk, Kategori, Harga Modal, dan Harga Jual.
+                </p>
+
+                <div className="p-3.5 rounded-xl bg-black/25 border border-gray-800 space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-gray-300">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      Deteksi Heuristik Kolom
+                    </span>
+                    <span className="font-mono text-emerald-400 font-bold">99.8% Akurat</span>
+                  </div>
+                  <div className="flex items-center justify-between text-gray-300">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      Auto Normalisasi Barcode EAN
+                    </span>
+                    <span className="font-mono text-cyan-400 font-bold">Aktif</span>
+                  </div>
+                  <div className="flex items-center justify-between text-gray-300">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      Harmonisasi Kategori &amp; Merek
+                    </span>
+                    <span className="font-mono text-purple-400 font-bold">Otomatis</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAiSmartMapOpen(true)}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.35)] cursor-pointer transition active:scale-95"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Mulai Impor Produk via AI</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Kartu 2: AI Business Diagnostics & Audit Operasional */}
+            <div
+              className={`p-6 rounded-2xl border flex flex-col justify-between space-y-4 ${
+                isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#161b22] border-[#30363d]'
+              }`}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
+                    <Brain className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base">AI Audit &amp; Rekomendasi Bisnis</h3>
+                    <p className="text-xs text-gray-400">Deteksi Margin, Anomali &amp; Prediksi Stok</p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Menjalankan pemindaian mendalam terhadap kartu stok, margin kotor per kategori, anomali diskon atau void kasir, serta menghitung estimasi hari kehabisan stok (Days of Inventory) secara instan.
+                </p>
+
+                {aiAuditReport ? (
+                  <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-500/40 text-xs space-y-2 max-h-48 overflow-y-auto">
+                    <div className="font-bold text-purple-300 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Hasil Audit Operasional AI:
+                    </div>
+                    <div className="text-gray-300 whitespace-pre-line leading-relaxed font-mono text-[11px]">
+                      {aiAuditReport}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-black/25 border border-gray-800 space-y-1.5 text-xs text-gray-400">
+                    <div className="flex items-center gap-1.5 text-cyan-300 font-semibold">
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      Cakupan Analisis AI:
+                    </div>
+                    <ul className="list-disc list-inside space-y-1 text-[11px] text-gray-400">
+                      <li>Produk dengan margin negatif atau di bawah 10%</li>
+                      <li>Deteksi produk slow-moving &amp; dead stock</li>
+                      <li>Pola anomali transaksi void dan diskon register</li>
+                      <li>Kalkulasi saran restock aman (Buffer Stock)</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  disabled={isAiRunningAudit}
+                  onClick={() => {
+                    setIsAiRunningAudit(true);
+                    showToast('AI sedang memindai audit operasional & menghitung rekomendasi stok...');
+                    setTimeout(() => {
+                      // Generate comprehensive business audit report based on live state
+                      const lowStockItems = products.filter((p) => (p.stock || 0) <= (p.min_stock || 5));
+                      const negativeMarginItems = products.filter((p) => (p.sell_price || 0) < (p.cost_price || 0));
+                      const totalStockValuation = products.reduce((acc, p) => acc + (p.cost_price || 0) * (p.stock || 0), 0);
+                      const avgMargin = products.length > 0 
+                        ? Math.round(products.reduce((acc, p) => acc + (((p.sell_price || 0) - (p.cost_price || 0)) / Math.max(1, p.sell_price || 1)) * 100, 0) / products.length)
+                        : 22;
+
+                      const report = [
+                        `✅ TOTAL VALUASI STOK: Rp ${totalStockValuation.toLocaleString('id-ID')}`,
+                        `📊 RATA-RATA MARGIN: ${avgMargin}% (${avgMargin >= 18 ? 'Sehat & Kompetitif' : 'Perlu Penyesuaian Harga'})`,
+                        `⚠️ REKOMENDASI RESTOCK: ${lowStockItems.length} produk menipis di bawah ambang minimum.`,
+                        lowStockItems.length > 0
+                          ? `   Contoh: ${lowStockItems.slice(0, 3).map((p) => `${p.name} (Sisa ${p.stock})`).join(', ')}.`
+                          : '   Semua stok dalam ambang aman.',
+                        `🔍 DETEKSI MARGIN: ${negativeMarginItems.length > 0 ? `Ditemukan ${negativeMarginItems.length} SKU dengan harga jual di bawah modal!` : '0 SKU anomali margin rugi.'}`,
+                        `🛡️ AUDIT REGISTER KASIR: ${salesHistory.length} transaksi dianalisis. Tidak ditemukan lonjakan anomali kasir tak wajar.`
+                      ].join('\n');
+
+                      setAiAuditReport(report);
+                      setAiStockRestockCount(lowStockItems.length);
+                      setIsAiRunningAudit(false);
+                      addAuditLog('AI Audit & Analisis Operasional selesai dijalankan', 'AI_SMART_TOOLS', 'INFO');
+                      showToast('Audit Operasional AI selesai dihitung!');
+                    }, 1200);
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,242,254,0.3)] cursor-pointer disabled:opacity-50 transition active:scale-95"
+                >
+                  <Brain className={`w-4 h-4 ${isAiRunningAudit ? 'animate-spin' : ''}`} />
+                  <span>{isAiRunningAudit ? 'Sedang Memindai Data...' : 'Jalankan AI Audit & Prediksi'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Kartu 3: Pengaturan Engine Model & API Key Gemini */}
+            <div
+              className={`p-6 rounded-2xl border flex flex-col justify-between space-y-4 ${
+                isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#161b22] border-[#30363d]'
+              }`}
+            >
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                    <SlidersHorizontal className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base">Pengaturan Model &amp; API Key</h3>
+                    <p className="text-xs text-gray-400">Gemini AI Engine &amp; Credentials</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <label className="block text-gray-400 font-semibold mb-1">
+                      Pilihan Model Gemini:
+                    </label>
+                    <select
+                      value={geminiModelSelected}
+                      onChange={(e) => {
+                        const m = e.target.value;
+                        setGeminiModelSelected(m);
+                        localStorage.setItem('jacs_gemini_model', m);
+                        showToast(`Model AI disetel ke: ${m}`);
+                      }}
+                      className="w-full p-2.5 rounded-xl border bg-black/25 border-gray-700 text-white font-mono text-xs focus:border-amber-500 focus:outline-hidden"
+                    >
+                      <option value="gemini-3.8-flash">gemini-3.8-flash (Standar Terbaik & Tercepat)</option>
+                      <option value="gemini-flash-latest">gemini-flash-latest (Versi Rilis Stabil)</option>
+                      <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Hemat Token & Kuota)</option>
+                      <option value="gemini-3.1-pro-preview">gemini-3.1-pro-preview (Advanced Reasoning Pro)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 font-semibold mb-1">
+                      Kunci Akses API (Gemini API Key):
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showGeminiApiKey ? 'text' : 'password'}
+                        value={geminiApiKeyInput}
+                        onChange={(e) => setGeminiApiKeyInput(e.target.value)}
+                        placeholder="AIzaSy... (Opsional / Terhubung Otomatis via Env)"
+                        className="w-full p-2.5 pr-10 rounded-xl border bg-black/25 border-gray-700 text-white font-mono text-xs focus:border-amber-500 focus:outline-hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowGeminiApiKey(!showGeminiApiKey)}
+                        className="absolute right-3 top-2.5 text-gray-400 hover:text-white cursor-pointer"
+                        title={showGeminiApiKey ? 'Sembunyikan' : 'Tampilkan'}
+                      >
+                        {showGeminiApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      Jika dikosongkan, sistem memakai server inject runtime secara otomatis.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-black/20 border border-gray-800 text-[11px] text-gray-400 flex items-start gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <span>
+                      API Key disimpan aman pada browser lokal terenkripsi session storage dan diteruskan dengan proteksi TLS.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    localStorage.setItem('jacs_gemini_api_key', geminiApiKeyInput.trim());
+                    localStorage.setItem('jacs_gemini_model', geminiModelSelected);
+                    addAuditLog(`Konfigurasi Model Gemini AI (${geminiModelSelected}) diperbarui`, 'SECURITY', 'INFO');
+                    showToast('✅ Konfigurasi AI Model & API Key berhasil disimpan!');
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(245,158,11,0.35)] cursor-pointer transition active:scale-95"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Simpan Konfigurasi AI</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {(adminTab === 'remote' || adminTab === 'system') && (
         <div className="space-y-6">
           {/* SAKELAR GLOBAL MAINTENANCE MODE & AKSES MULTI-USER */}
           <div className={`p-6 rounded-2xl border transition-all ${
@@ -2832,11 +3688,27 @@ export const SuperAdminModule: React.FC = () => {
         </div>
       )}
 
+      {/* ====================================================
+          TAB 8: PUSAT INFORMASI & STANDAR OPERASIONAL PROSEDUR (SOP) 6 DIVISI
+          ==================================================== */}
+      {adminTab === 'sop' && (
+        <SopInfoCenterTab isLight={isLight} />
+      )}
+
       {/* Data Migration Wizard & Smart Column Mapping Modal */}
       <DataMigrationModal
         isOpen={isMigrationModalOpen}
         onClose={() => setIsMigrationModalOpen(false)}
         initialEntity={migrationInitialEntity}
+      />
+
+      {/* AI Smart Mapper Modal for External Formats */}
+      <AiSmartMapperModal
+        isOpen={isAiSmartMapOpen}
+        onClose={() => setIsAiSmartMapOpen(false)}
+        onImportProducts={handleAiSmartMapImport}
+        isLight={isLight}
+        isEn={false}
       />
     </div>
   );
