@@ -50,8 +50,11 @@ const DEPARTMENTS: HrDepartment[] = [
   'Warehouse & Logistik',
   'Purchasing',
   'Finance & Accounting',
+  'Human Resources & Personalia',
+  'Master Data & Katalog',
   'Executive & Management',
   'IT & Security',
+  'IT & Super Admin',
 ];
 
 const CONTRACT_STATUSES: ContractStatus[] = [
@@ -269,7 +272,7 @@ export const HrModule: React.FC = () => {
       joinDate: new Date().toISOString().slice(0, 10),
       shift: 'Pagi (07:00 - 15:30)',
       leaveTotal: 12,
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      avatar: '',
     });
     setIsEmployeeModalOpen(true);
   };
@@ -287,7 +290,7 @@ export const HrModule: React.FC = () => {
       joinDate: emp.joinDate,
       shift: emp.shift,
       leaveTotal: emp.leaveQuota.total,
-      avatar: emp.avatar,
+      avatar: emp.avatar || '',
     });
     setIsEmployeeModalOpen(true);
   };
@@ -300,13 +303,15 @@ export const HrModule: React.FC = () => {
       updateEmployee(editingEmployee.id, {
         name: empForm.name,
         department: empForm.department,
+        division: empForm.department,
         role: empForm.role,
         contractStatus: empForm.contractStatus,
         phone: empForm.phone,
         email: empForm.email,
         joinDate: empForm.joinDate,
         shift: empForm.shift,
-        avatar: empForm.avatar,
+        avatar: empForm.avatar || null,
+        avatarUrl: empForm.avatar || null,
         leaveQuota: {
           ...editingEmployee.leaveQuota,
           total: empForm.leaveTotal,
@@ -317,14 +322,17 @@ export const HrModule: React.FC = () => {
       addEmployee({
         nip: empForm.nip,
         name: empForm.name,
-        department: empForm.department,
+        division: empForm.department || 'POS & Kasir',
         role: empForm.role,
+        pin: '1111',
+        avatarUrl: empForm.avatar ? empForm.avatar : null,
+        department: empForm.department,
         contractStatus: empForm.contractStatus,
         phone: empForm.phone,
         email: empForm.email,
         joinDate: empForm.joinDate,
         shift: empForm.shift,
-        avatar: empForm.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+        avatar: empForm.avatar || null,
         leaveQuota: {
           total: empForm.leaveTotal,
           used: 0,
@@ -393,7 +401,7 @@ export const HrModule: React.FC = () => {
   };
 
   return (
-    <div id="hr-module-container" className="space-y-6 max-w-7xl mx-auto pb-8">
+    <div id="hr-module-container" className="w-full min-w-0 overflow-x-hidden space-y-6 max-w-7xl mx-auto pb-8">
       {/* 1. TOP HEADER & BREADCRUMB */}
       <div
         className={`p-6 rounded-2xl border transition-all ${
@@ -473,7 +481,7 @@ export const HrModule: React.FC = () => {
         </div>
 
         {/* 2. THREE MAIN NAVIGATION TABS (Bilingual & Hover Glow Reactive) */}
-        <div className="mt-6 pt-4 border-t border-gray-700/30 flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="mt-6 pt-4 border-t border-gray-700/30 flex flex-wrap items-center gap-2 pb-1">
           <button
             type="button"
             onClick={() => setActiveTab('directory')}
@@ -614,13 +622,13 @@ export const HrModule: React.FC = () => {
         <div className="space-y-4">
           {/* Controls & Search Toolbar */}
           <div
-            className={`p-4 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+            className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${
               isLight
                 ? 'bg-white border-slate-200 text-slate-900'
                 : 'bg-[#161b22] border-[#30363d] text-white'
             }`}
           >
-            <div className="flex flex-wrap items-center gap-2.5 flex-1">
+            <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
               {/* Search Bar */}
               <div className="relative min-w-[240px] flex-1 max-w-md">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -696,14 +704,14 @@ export const HrModule: React.FC = () => {
 
           {/* Employee Directory Table */}
           <div
-            className={`rounded-2xl border overflow-hidden ${
+            className={`w-full min-w-0 rounded-2xl border overflow-hidden ${
               isLight
                 ? 'bg-white border-slate-200 shadow-sm'
                 : 'bg-[#161b22] border-[#30363d]'
             }`}
           >
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[780px] text-left text-xs border-collapse">
                 <thead>
                   <tr
                     className={`border-b text-[11px] font-semibold uppercase tracking-wider ${
@@ -750,14 +758,22 @@ export const HrModule: React.FC = () => {
                           {/* NIP & Avatar & Name */}
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
-                              <img
-                                src={emp.avatar}
-                                alt={emp.name}
-                                className={`w-10 h-10 rounded-full object-cover border shrink-0 ${
-                                  isLight ? 'border-slate-200' : 'border-cyan-500/30'
-                                }`}
-                                referrerPolicy="no-referrer"
-                              />
+                              {emp.avatarUrl || emp.avatar ? (
+                                <img
+                                  src={emp.avatarUrl || emp.avatar || ''}
+                                  alt={emp.name}
+                                  className={`w-10 h-10 rounded-full object-cover border shrink-0 ${
+                                    isLight ? 'border-slate-200' : 'border-cyan-500/30'
+                                  }`}
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center border shrink-0 ${
+                                  isLight ? 'bg-slate-200 border-slate-300 text-slate-500' : 'bg-slate-800 border-slate-700 text-slate-400'
+                                }`}>
+                                  <Users className="w-5 h-5" />
+                                </div>
+                              )}
                               <div>
                                 <span className="font-semibold text-sm tracking-[-0.01em] block">
                                   {emp.name}
@@ -1061,12 +1077,12 @@ export const HrModule: React.FC = () => {
 
           {/* Attendance Log Table */}
           <div
-            className={`rounded-2xl border overflow-hidden ${
+            className={`w-full min-w-0 rounded-2xl border overflow-hidden ${
               isLight ? 'bg-white border-slate-200 shadow-sm' : 'bg-[#161b22] border-[#30363d]'
             }`}
           >
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[850px] text-left text-xs border-collapse">
                 <thead>
                   <tr
                     className={`border-b text-[11px] font-semibold uppercase tracking-wider ${
@@ -1108,14 +1124,22 @@ export const HrModule: React.FC = () => {
                         >
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2.5">
-                              <img
-                                src={att.avatar}
-                                alt={att.employeeName}
-                                className={`w-8 h-8 rounded-full object-cover border shrink-0 ${
-                                  isLight ? 'border-slate-200' : 'border-cyan-500/30'
-                                }`}
-                                referrerPolicy="no-referrer"
-                              />
+                              {att.avatar ? (
+                                <img
+                                  src={att.avatar}
+                                  alt={att.employeeName}
+                                  className={`w-8 h-8 rounded-full object-cover border shrink-0 ${
+                                    isLight ? 'border-slate-200' : 'border-cyan-500/30'
+                                  }`}
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border shrink-0 ${
+                                  isLight ? 'bg-slate-200 border-slate-300 text-slate-500' : 'bg-slate-800 border-slate-700 text-slate-400'
+                                }`}>
+                                  <Users className="w-4 h-4" />
+                                </div>
+                              )}
                               <div>
                                 <span className="font-semibold text-xs block">{att.employeeName}</span>
                                 <span className={`text-[10px] font-mono ${isLight ? 'text-sky-700' : 'text-cyan-400'}`}>{att.nip}</span>
