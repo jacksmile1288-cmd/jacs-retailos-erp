@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Product, CartItem, PaymentMethod, Terminal, PriceTier, CustomerMaster, CashierShift, PaymentPayload } from '../../types';
+import { Product, CartItem, PaymentMethod, Terminal, PriceTier, CustomerMaster, CashierShift, PaymentPayload, User as UserType } from '../../types';
 import { getReactiveNeonGlowStyle } from '../../utils/neonGlow';
 import { calculateMemberTierLevel, LOYALTY_THRESHOLDS } from '../../utils/loyaltyUtils';
 import { FNB_PRODUCTS } from '../../data/fnbData';
@@ -129,6 +129,9 @@ export const PosModule: React.FC = () => {
     toggleTerminalLock,
     setAllTerminalsLock,
     activeUser,
+    currentUser,
+    setCurrentUser,
+    setActiveUser,
     isSuperAdminAuthenticated,
     openPinAuth,
     products,
@@ -184,6 +187,10 @@ export const PosModule: React.FC = () => {
   // Sync fullscreen cashier workspace state with global App context (auto-collapse sidebar)
   useEffect(() => {
     setIsCashierWorkspaceActive(isRegisterOpen);
+    if (!isRegisterOpen && activeUser?.role === 'Kasir') {
+      setActiveUser(null);
+      setCurrentUser(null);
+    }
     return () => {
       setIsCashierWorkspaceActive(false);
     };
@@ -1983,28 +1990,19 @@ export const PosModule: React.FC = () => {
 
   // Terminal Selection click handler (Enforces Lock & Security PIN, and Shift Check)
   const handleTerminalCardClick = (term: Terminal) => {
-    const is0708 = term.id === 'T-07' || term.id === 'T-08' || term.name === 'KASIR 07' || term.name === 'KASIR 08';
-    const isTerminalLocked = isSuperAdmin ? false : Boolean(term.isLocked);
-
-    if (isTerminalLocked && !is0708) {
-      setTerminalToUnlock(term);
-      setIsUnlockModalOpen(true);
-      return;
-    }
-
     let targetTerm: Terminal = term;
-    if (isSuperAdmin) {
+    if (term.id === 'T-07' || term.name === 'KASIR 07') {
       targetTerm = {
         ...term,
-        isLocked: false,
+        colorHex: '#38bdf8',
+        businessModel: 'Elektronik & Gawai',
+        subLabel: 'Data Master',
       };
-    } else if (is0708) {
-      const is08 = term.id === 'T-08' || term.name === 'KASIR 08';
+    } else if (term.id === 'T-08' || term.name === 'KASIR 08') {
       targetTerm = {
         ...term,
-        isLocked: false,
-        colorHex: is08 ? '#ff7a00' : (term.colorHex || '#38bdf8'),
-        businessModel: is08 ? 'Bengkel & Otomotif' : 'Elektronik & Gawai',
+        colorHex: '#84cc16',
+        businessModel: 'Bengkel & Otomotif',
         subLabel: 'Data Master',
       };
     } else if (term.code === 'KASIR-02' || term.name === 'KASIR 02' || term.id === 'T-02') {
@@ -2015,8 +2013,13 @@ export const PosModule: React.FC = () => {
         code: 'KASIR-02',
         businessModel: term.businessModel || 'Kuliner & Resto (F&B)',
         colorHex: term.colorHex || '#10B981',
-        isLocked: false,
       };
+    }
+
+    if (term.isLocked || !activeUser) {
+      setTerminalToUnlock(targetTerm);
+      setIsUnlockModalOpen(true);
+      return;
     }
 
     // Set registerId & receipt prefix (KASIR-02 mandiri vs POS)
@@ -2054,22 +2057,88 @@ export const PosModule: React.FC = () => {
       code: 'KASIR-02',
       businessModel: 'Ritel & Kasir Bantuan (Back-End)',
       colorHex: '#00f2fe',
-      isLocked: false,
+      isLocked: rawT.isLocked,
     };
     handleTerminalCardClick(kasir02Term);
   };
 
+  // Handler Logout Kasir / Keluar dari Layar Register
+  const handleCashierLogout = () => {
+    setIsRegisterOpen(false);
+    setIsFullscreen(false);
+    // Kembalikan teks Topbar menjadi "POS & CASHIER (TERMINAL)"
+    setActiveUser(null);
+    setCurrentUser(null);
+    showToast(
+      language === 'ID'
+        ? 'Kasir telah logout. Profil Topbar kembali ke status POS & CASHIER (TERMINAL).'
+        : 'Cashier logged out. Topbar profile returned to POS & CASHIER (TERMINAL).'
+    );
+  };
+
   // Terminal Unlock Success Callback
-  const handleUnlockSuccess = (term: Terminal) => {
+  const handleUnlockSuccess = (term: Terminal, user?: UserType) => {
     toggleTerminalLock(term.id, false);
     const unlocked = { ...term, isLocked: false };
     setActiveTerminal(unlocked);
+
+    const termName = (unlocked.name || '').toUpperCase();
+    const termCode = (unlocked.code || '').toUpperCase();
+    const termId = (unlocked.id || '').toUpperCase();
+
+    let targetCashier: UserType | undefined = user;
+    let matchedName = 'Andi Pratama';
+    let matchedRole = 'Kasir 01';
+    let matchedEmail = 'andi.pos01@jacs-erp.com';
+    let matchedId = 'emp-001';
+
+    if (termName.includes('02') || termCode.includes('02') || termId === 'T-02') {
+      matchedName = 'Maya Indah';
+      matchedRole = 'Kasir 02';
+      matchedEmail = 'maya.pos02@jacs-erp.com';
+      matchedId = 'emp-002';
+    } else if (termName.includes('03') || termCode.includes('03') || termId === 'T-03') {
+      matchedName = 'Rian Hidayat';
+      matchedRole = 'Kasir 03';
+      matchedEmail = 'rian.pos03@jacs-erp.com';
+      matchedId = 'emp-003';
+    } else if (termName.includes('04') || termCode.includes('04') || termId === 'T-04') {
+      matchedName = 'Siti Aminah';
+      matchedRole = 'Kasir 04';
+      matchedEmail = 'siti.pos04@jacs-erp.com';
+      matchedId = 'emp-004';
+    }
+
+    if (!targetCashier || targetCashier.role !== 'Kasir') {
+      const existingUser = users.find((u) => u.name === matchedName);
+      if (existingUser) {
+        targetCashier = existingUser;
+      } else {
+        targetCashier = {
+          user_id: matchedId,
+          id: matchedId,
+          name: matchedName,
+          email: matchedEmail,
+          division: 'POS & Kasir',
+          role: 'Kasir',
+          status: 'Active',
+          pin: '1234',
+          avatar: null,
+          avatarUrl: null,
+        };
+      }
+    }
+
+    if (targetCashier) {
+      setCurrentUser(targetCashier);
+      setActiveUser(targetCashier);
+    }
     setIsUnlockModalOpen(false);
     setTerminalToUnlock(null);
     showToast(
       language === 'ID'
-        ? `Terminal ${term.name} berhasil dibuka! Selamat bertransaksi.`
-        : `Terminal ${term.name} unlocked! Happy selling.`
+        ? `Terminal ${term.name} berhasil dibuka! Kasir bertugas: ${targetCashier.name} (${matchedRole})`
+        : `Terminal ${term.name} unlocked! Cashier: ${targetCashier.name} (${matchedRole})`
     );
 
     const hasActiveShift = Boolean(
@@ -2198,7 +2267,7 @@ export const PosModule: React.FC = () => {
       terminalId: activeTerminal.id,
       businessType: activeTerminal.businessType || activeTerminal.businessModel || activeTerminal.modelType,
       receiptNumber: receiptNumber,
-      cashierName: activeUser.name,
+      cashierName: activeUser?.name || 'Kasir',
     };
 
     processPayment(paymentPayload);
@@ -2295,7 +2364,7 @@ export const PosModule: React.FC = () => {
       terminalId: activeTerminal.id,
       businessType: activeTerminal.businessType || activeTerminal.businessModel || activeTerminal.modelType,
       receiptNumber: receiptNumber,
-      cashierName: activeUser.name,
+      cashierName: activeUser?.name || 'Kasir',
     };
 
     // Panggil langsung fungsi processPayment(payload) -> mencatat penjualan dan membuka ReceiptModal
@@ -2470,7 +2539,7 @@ export const PosModule: React.FC = () => {
       terminalId: activeTerminal.id,
       businessType: activeTerminal.businessType || activeTerminal.businessModel || activeTerminal.modelType,
       receiptNumber: receiptNumber,
-      cashierName: activeUser.name,
+      cashierName: activeUser?.name || 'Kasir',
     };
 
     processPayment(paymentPayload);
@@ -2753,7 +2822,6 @@ export const PosModule: React.FC = () => {
                       colorHex: '#38bdf8', // Neon Blue
                       subLabel: 'Data Master',
                       businessModel: 'Elektronik & Gawai',
-                      isLocked: false,
                     };
                   } else if (is08) {
                     term = {
@@ -2761,12 +2829,11 @@ export const PosModule: React.FC = () => {
                       colorHex: '#84cc16', // Lime
                       subLabel: 'Data Master',
                       businessModel: 'Bengkel & Otomotif',
-                      isLocked: false,
                     };
                   }
 
-                  // 2. Hak Akses Super Admin: jika Super Admin aktif, seluruh terminal otomatis terbuka (unlocked) dan siap diakses
-                  const isLocked = isSuperAdmin ? false : Boolean(term.isLocked);
+                  // Status Kunci Terminal: Konsisten membaca dari AppContext / localStorage
+                  const isLocked = Boolean(term.isLocked);
                   const isSelected = activeTerminal.id === term.id;
                   const isHovered = hoveredTerminalId === term.id;
                   const neonStyle = getReactiveNeonGlowStyle(
@@ -2963,7 +3030,7 @@ export const PosModule: React.FC = () => {
                               }}
                               className="font-bold text-xs px-3.5 py-1.5 rounded-xl bg-[#0052FF] hover:bg-[#0043d1] text-white flex items-center gap-1.5 transition shadow-sm cursor-pointer active:scale-95 shrink-0"
                             >
-                              <span>{language === 'ID' ? 'Buka Kasir →' : 'Open Register →'}</span>
+                              <span>{language === 'ID' ? (!activeUser ? 'Buka dengan PIN →' : 'Buka Kasir →') : (!activeUser ? 'Open with PIN →' : 'Open Register →')}</span>
                             </button>
                           </>
                         )}
@@ -2995,10 +3062,7 @@ export const PosModule: React.FC = () => {
               <button
                 id="btn-back-to-terminals-top-left"
                 type="button"
-                onClick={() => {
-                  setIsRegisterOpen(false);
-                  setIsFullscreen(false);
-                }}
+                onClick={handleCashierLogout}
                 className={`px-3 py-1.5 rounded-xl border font-black text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-sm active:scale-95 ${
                   isLight
                     ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800 hover:text-slate-950'
@@ -3681,22 +3745,20 @@ export const PosModule: React.FC = () => {
                 {isLight ? <Moon className="w-3.5 h-3.5 text-blue-600" /> : <Sun className="w-3.5 h-3.5 text-amber-400" />}
               </button>
 
-              {/* Tombol Kembali / Keluar Kasir */}
+              {/* Tombol Logout Kasir & Kembali ke Daftar Terminal */}
               <button
                 id="btn-back-to-terminals"
                 type="button"
-                onClick={() => {
-                  setIsRegisterOpen(false);
-                  setIsFullscreen(false);
-                }}
-                className={`p-1.5 rounded-lg border transition cursor-pointer shrink-0 ${
+                onClick={handleCashierLogout}
+                className={`px-2.5 py-1.5 rounded-lg border font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 active:scale-95 ${
                   isLight
-                    ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-800'
-                    : 'bg-[#0d1117] hover:bg-[#21262d] border-[#30363d] text-gray-200'
+                    ? 'bg-rose-50 hover:bg-rose-100 border-rose-200 text-rose-700'
+                    : 'bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/30 text-rose-400'
                 }`}
-                title={language === 'ID' ? 'Keluar Layar Kasir' : 'Exit Register'}
+                title={language === 'ID' ? 'Logout Kasir & Kembali ke Terminal' : 'Logout Cashier & Exit Register'}
               >
-                <ArrowLeft className="w-4 h-4 text-[#0052FF] dark:text-[#58a6ff]" />
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{language === 'ID' ? 'Logout Kasir' : 'Logout'}</span>
               </button>
             </div>
           </div>
@@ -6608,7 +6670,7 @@ export const PosModule: React.FC = () => {
                   <div>
                     <div className="border-b border-slate-400 mx-6"></div>
                     <div className="text-[11px] font-bold text-slate-900 mt-1">
-                      ( {activeUser.name || 'Checker Depo'} )
+                      ( {activeUser?.name || 'Checker Depo'} )
                     </div>
                   </div>
                 </div>
@@ -6680,7 +6742,7 @@ export const PosModule: React.FC = () => {
         onClose={() => setIsCloseShiftModalOpen(false)}
         onShiftClosed={(closedShift) => {
           setClosedShiftForReceipt(closedShift);
-          setIsRegisterOpen(false);
+          handleCashierLogout();
         }}
         isLight={isLight}
       />
