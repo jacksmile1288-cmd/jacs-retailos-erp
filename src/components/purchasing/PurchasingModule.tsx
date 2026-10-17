@@ -48,6 +48,8 @@ import {
 export const PurchasingModule: React.FC = () => {
   const {
     purchasing,
+    purchaseRequests,
+    setPurchaseRequests,
     products,
     suppliers,
     createPurchaseOrder,
@@ -76,7 +78,7 @@ export const PurchasingModule: React.FC = () => {
 
   // Navigation & Tab States
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
-  const [activePurchasingTab, setActivePurchasingTab] = useState<'po' | 'gr' | 'invoices'>('po');
+  const [activePurchasingTab, setActivePurchasingTab] = useState<'po' | 'pr' | 'gr' | 'invoices'>('po');
 
   // Filter & Search States
   const [searchQuery, setSearchQuery] = useState('');
@@ -1047,6 +1049,31 @@ export const PurchasingModule: React.FC = () => {
 
               <button
                 type="button"
+                id="tab-btn-purchasing-pr"
+                onClick={() => setActivePurchasingTab('pr')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
+                  activePurchasingTab === 'pr'
+                    ? isLight
+                      ? 'bg-white text-amber-600 border border-slate-200 shadow-sm'
+                      : 'bg-amber-600 text-slate-950 font-bold shadow-sm'
+                    : isLight
+                    ? 'text-slate-600 hover:text-slate-900'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                <ClipboardCheck className="w-3.5 h-3.5" />
+                <span>Draf Permintaan / PR ({purchaseRequests.length})</span>
+                {purchaseRequests.filter((pr) => pr.status === 'PENDING' || pr.status === 'Pending Approval').length > 0 && (
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold border ${
+                    isLight ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-amber-500/30 text-amber-300 border-amber-500/40'
+                  }`}>
+                    {purchaseRequests.filter((pr) => pr.status === 'PENDING' || pr.status === 'Pending Approval').length} PENDING
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
                 id="tab-btn-purchasing-gr"
                 onClick={() => setActivePurchasingTab('gr')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
@@ -1059,7 +1086,7 @@ export const PurchasingModule: React.FC = () => {
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
-                <ClipboardCheck className="w-3.5 h-3.5" />
+                <PackageCheck className="w-3.5 h-3.5" />
                 <span>Penerimaan Barang / GR ({goodsReceipts.length})</span>
                 {approvedPOs.length > 0 && (
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold border ${
@@ -1091,6 +1118,7 @@ export const PurchasingModule: React.FC = () => {
 
           <div className="text-xs text-[#8b949e]">
             {activePurchasingTab === 'po' && `${filteredPurchasing.length} dari ${purchasing.length} Dokumen PO`}
+            {activePurchasingTab === 'pr' && `${purchaseRequests.length} Draf Permintaan Pembelian (PR)`}
             {activePurchasingTab === 'gr' && `${goodsReceipts.length} Penerimaan Terverifikasi`}
             {activePurchasingTab === 'invoices' && `${purchasing.length} Faktur Tagihan`}
           </div>
@@ -1529,6 +1557,162 @@ export const PurchasingModule: React.FC = () => {
                               </button>
                             )}
                           </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* TAB PR: DRAF PURCHASE REQUEST (ROP NOTIFICATIONS & PERMINTAAN PEMBELIAN) */}
+        {activePurchasingTab === 'pr' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead
+                className={`font-semibold border-b uppercase tracking-wider text-[11px] ${
+                  isLight
+                    ? 'bg-slate-100 text-slate-700 border-slate-200'
+                    : 'bg-[#0d1117] text-[#8b949e] border-[#30363d]'
+                }`}
+              >
+                <tr>
+                  <th className="py-3 px-4">No. PR & Tanggal</th>
+                  <th className="py-3 px-4">Pemohon & Departemen</th>
+                  <th className="py-3 px-4">Barang & Kuantitas</th>
+                  <th className="py-3 px-4 text-right">Estimasi Biaya</th>
+                  <th className="py-3 px-4 text-center">Urgensi</th>
+                  <th className="py-3 px-4 text-center">Status PR</th>
+                  <th className="py-3 px-4 text-center">Aksi / Otorisasi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700/20">
+                {purchaseRequests.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-12 text-gray-500">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <CheckCircle className="w-8 h-8 text-emerald-400 opacity-60" />
+                        <span className="font-semibold text-sm">Tidak ada draf Purchase Request aktif</span>
+                        <span className="text-xs text-gray-400">Seluruh stok produk berada dalam batas aman ROP</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  purchaseRequests.map((pr, prIdx) => {
+                    const isPending = pr.status === 'PENDING' || pr.status === 'Pending Approval';
+                    const matchedProd = products.find(
+                      (p) =>
+                        p.name.toLowerCase() === pr.item_name.toLowerCase() ||
+                        pr.item_name.toLowerCase().includes(p.name.toLowerCase()) ||
+                        pr.item_name.includes(p.id)
+                    );
+
+                    return (
+                      <tr
+                        key={`pr-row-${pr.pr_number}-${prIdx}`}
+                        className={`transition hover:bg-slate-500/5 ${
+                          isPending ? (isLight ? 'bg-amber-50/30' : 'bg-amber-950/10') : ''
+                        }`}
+                      >
+                        <td className="py-3 px-4 font-mono font-bold text-cyan-400">
+                          <div>{pr.pr_number}</div>
+                          <div className="text-[10px] text-gray-400 font-normal">{pr.date}</div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className={`font-semibold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                            {pr.requester_name}
+                          </div>
+                          <div className="text-[10px] text-gray-400">{pr.department}</div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className={`font-bold ${isLight ? 'text-slate-800' : 'text-[#e6edf3]'}`}>
+                            {pr.item_name}
+                          </div>
+                          <div className="text-[11px] font-mono text-amber-500 font-semibold">
+                            Kebutuhan Pesan: {pr.qty} Unit
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono font-bold">
+                          Rp {pr.estimated_cost.toLocaleString('id-ID')}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              pr.urgency === 'High'
+                                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                : pr.urgency === 'Medium'
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                            }`}
+                          >
+                            {pr.urgency}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-bold font-mono border inline-flex items-center gap-1 ${
+                              isPending
+                                ? isLight
+                                  ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse'
+                                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                            }`}
+                          >
+                            {isPending && <Clock className="w-3 h-3 text-amber-400" />}
+                            <span>{pr.status}</span>
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {isPending ? (
+                            <span
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 inline-flex items-center gap-1 cursor-default"
+                              title="Menunggu persetujuan manajerial di modul Executive sebelum dapat diproses menjadi PO"
+                            >
+                              <Clock className="w-3 h-3 text-amber-400" />
+                              <span>Menunggu Approval</span>
+                            </span>
+                          ) : pr.status === 'REJECTED' || pr.status === 'Rejected' || pr.status === 'Ditolak' ? (
+                            <span
+                              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/30 inline-flex items-center gap-1 cursor-default"
+                              title="Purchase Request telah ditolak oleh Direksi/Executive"
+                            >
+                              <XCircle className="w-3 h-3 text-rose-400" />
+                              <span>Ditolak</span>
+                            </span>
+                          ) : pr.status === 'Converted to PO' ? (
+                            <span className="px-2.5 py-1 rounded-lg text-[11px] font-mono text-cyan-400 font-bold bg-cyan-500/10 border border-cyan-500/20 inline-flex items-center gap-1">
+                              <CheckCircle className="w-3 h-3 text-cyan-400" />
+                              <span>Sudah Jadi PO</span>
+                            </span>
+                          ) : (
+                            /* PR berstatus APPROVED: Staf Purchasing dapat memproses PO */
+                            <button
+                              type="button"
+                              id={`btn-process-pr-to-po-${pr.pr_number}`}
+                              onClick={() => {
+                                if (matchedProd) {
+                                  createAutoReorderPO(matchedProd);
+                                } else {
+                                  setIsCreateModalOpen(true);
+                                }
+                                setPurchaseRequests((prev) =>
+                                  prev.map((item) =>
+                                    item.pr_number === pr.pr_number
+                                      ? { ...item, status: 'Converted to PO' as const }
+                                      : item
+                                  )
+                                );
+                                showToast(`Purchase Request ${pr.pr_number} berhasil diproses menjadi Purchase Order (PO)!`);
+                              }}
+                              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition cursor-pointer shadow-md inline-flex items-center gap-1.5 active:scale-95"
+                              title="Purchase Request telah disetujui (APPROVED). Klik untuk memproses dokumen PO resmi ke Supplier"
+                            >
+                              <Zap className="w-3.5 h-3.5 fill-current" />
+                              <span>Proses PO (APPROVED)</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
