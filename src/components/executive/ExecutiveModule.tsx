@@ -32,6 +32,9 @@ export const ExecutiveModule: React.FC = () => {
     users,
     finance,
     purchasing,
+    purchaseRequests,
+    approvePurchaseRequest,
+    rejectPurchaseRequest,
     approvalQueue,
     approveItem,
     rejectItem,
@@ -54,6 +57,11 @@ export const ExecutiveModule: React.FC = () => {
   const isEn = language === 'en';
 
   const pendingApprovals = approvalQueue.filter((a) => a.status === 'PENDING');
+  const pendingPurchaseRequests = useMemo(() => {
+    return (purchaseRequests || []).filter(
+      (pr) => pr.status === 'PENDING' || pr.status === 'Pending Approval'
+    );
+  }, [purchaseRequests]);
 
   const isPendingPo = (po: any) => {
     const s = (po.status || '').toUpperCase().trim();
@@ -71,15 +79,18 @@ export const ExecutiveModule: React.FC = () => {
     );
   }, [purchasing]);
 
-  const totalPendingQueueCount = pendingApprovals.length > 0 ? pendingApprovals.length : highValuePendingPOs.length;
+  const totalPendingQueueCount = pendingApprovals.length + pendingPurchaseRequests.length + highValuePendingPOs.length;
 
   const handleApproveAllQueue = () => {
     const pendingItems = approvalQueue.filter((a) => a.status === 'PENDING');
     const pendingPOs = (purchasing || []).filter((po) => isPendingPo(po));
+    const pendingPRs = (purchaseRequests || []).filter(
+      (pr) => pr.status === 'PENDING' || pr.status === 'Pending Approval'
+    );
 
-    if (pendingItems.length === 0 && pendingPOs.length === 0) return;
+    if (pendingItems.length === 0 && pendingPOs.length === 0 && pendingPRs.length === 0) return;
 
-    const totalCount = pendingItems.length > 0 ? pendingItems.length : pendingPOs.length;
+    const totalCount = pendingItems.length + pendingPRs.length + pendingPOs.length;
 
     // Direct batch approval for all document approvals
     approveAllDocumentApprovals();
@@ -91,6 +102,11 @@ export const ExecutiveModule: React.FC = () => {
         poNotesMap[po.po_number] ||
           'Disetujui batch oleh Direksi & Pimpinan Eksekutif untuk pemenuhan pengadaan barang Q4.'
       );
+    });
+
+    // 2. Setujui seluruh draf PR pending
+    pendingPRs.forEach((pr) => {
+      approvePurchaseRequest(pr.pr_number);
     });
 
     // 2. Setujui seluruh program promosi yang masih pending otorisasi
@@ -221,8 +237,8 @@ export const ExecutiveModule: React.FC = () => {
     {
       id: 'approval-queue',
       title: 'Antrean Persetujuan (Approval Queue)',
-      value: `${pendingApprovals.length} Menunggu`,
-      sub: `${approvalQueue.length} Total Berkas PR & Otoritas`,
+      value: `${pendingApprovals.length + pendingPurchaseRequests.length} Menunggu`,
+      sub: `${pendingPurchaseRequests.length} Draf PR • ${pendingApprovals.length} Dokumen Umum`,
       colorHex: '#f43f5e',
       icon: ShieldCheck,
       focusDesc:
@@ -235,7 +251,7 @@ export const ExecutiveModule: React.FC = () => {
     metricCards.find((c) => c.id === selectedMetricId) || metricCards[0];
 
   return (
-    <div id="executive-module" className="space-y-6 max-w-7xl mx-auto pb-6">
+    <div id="executive-module" className="space-y-6 max-w-7xl mx-auto pb-6 w-full min-w-0 overflow-x-hidden">
       {/* Header */}
       <div
         className={`p-5 rounded-2xl border transition duration-200 ${
@@ -284,7 +300,7 @@ export const ExecutiveModule: React.FC = () => {
       </div>
 
       {/* Sub-Navigation Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 border-b border-slate-700/30">
+      <div className="flex flex-wrap items-center gap-2 pb-1 border-b border-slate-700/30">
         <button
           id="btn-tab-exec-overview"
           type="button"
@@ -376,7 +392,7 @@ export const ExecutiveModule: React.FC = () => {
       {activeTab === 'overview' && (
         <>
           {/* 5 NEON KPI CARDS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {metricCards.map((card) => {
           const Icon = card.icon;
           const isSelected = selectedMetricId === card.id;
@@ -396,7 +412,7 @@ export const ExecutiveModule: React.FC = () => {
               onMouseEnter={() => setHoveredCardId(card.id)}
               onMouseLeave={() => setHoveredCardId(null)}
               style={glowStyle}
-              className="relative p-4 rounded-2xl text-left cursor-pointer overflow-hidden flex flex-col justify-between min-h-[140px] transition-all duration-150 ease-out"
+              className="relative p-4 rounded-2xl text-left cursor-pointer overflow-hidden flex flex-col justify-between min-h-[140px] transition-all duration-150 ease-out min-w-0"
             >
               {/* Top Accent Strip */}
               <div
@@ -407,15 +423,16 @@ export const ExecutiveModule: React.FC = () => {
                 }}
               />
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-1.5 min-w-0">
                 <span
-                  className="text-xs font-bold uppercase tracking-wider"
+                  className="text-xs font-bold uppercase tracking-wider truncate min-w-0"
                   style={{ color: isSelected ? card.colorHex : '#8b949e' }}
+                  title={card.title}
                 >
                   {card.title}
                 </span>
                 <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                   style={{
                     backgroundColor: `${card.colorHex}20`,
                     color: card.colorHex,
@@ -426,16 +443,17 @@ export const ExecutiveModule: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-2">
+              <div className="mt-2 min-w-0">
                 <div
-                  className={`text-lg sm:text-xl font-black font-mono tracking-tight ${
+                  className={`text-lg sm:text-xl font-black font-mono tracking-tight truncate min-w-0 ${
                     isLight ? 'text-slate-900' : 'text-white'
                   }`}
                   style={{ color: isSelected ? card.colorHex : undefined }}
+                  title={card.value}
                 >
                   {card.value}
                 </div>
-                <div className="text-[11px] text-[#8b949e] font-medium mt-1 truncate">
+                <div className="text-[11px] text-[#8b949e] font-medium mt-1 truncate" title={card.sub}>
                   {card.sub}
                 </div>
               </div>
@@ -662,8 +680,137 @@ export const ExecutiveModule: React.FC = () => {
               )}
             </div>
 
-            {/* SEKSI 2: ANTREAN PERSETUJUAN DOKUMEN LAINNYA (PR & USER ACCESS HR) */}
-            <div className="space-y-3 pt-2 border-t border-[#30363d]/60">
+            {/* SEKSI 2: DAFTAR DRAF PURCHASE REQUEST (PR) - APPROVAL MANAJERIAL */}
+            <div className="space-y-3 pt-4 border-t border-[#30363d]/60">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-sky-500/20 text-sky-400">
+                    <FileText className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h4 className={`text-sm font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      Daftar Draf Purchase Request (PR) - Approval Manajerial
+                    </h4>
+                    <p className="text-xs text-gray-400">
+                      Otorisasi draf permohonan pengadaan stok barang dari gudang/toko sebelum diproses staf Purchasing menjadi PO.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    {pendingPurchaseRequests.length} PR Menunggu Persetujuan
+                  </span>
+                </div>
+              </div>
+
+              {pendingPurchaseRequests.length === 0 ? (
+                <div
+                  className={`p-4 rounded-xl border text-center text-xs ${
+                    isLight
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                  }`}
+                >
+                  <p className="font-semibold flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Seluruh draf Purchase Request (PR) telah diproses / disetujui (APPROVED). Tidak ada draf pending.</span>
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {pendingPurchaseRequests.map((pr) => (
+                    <div
+                      key={`pr-exec-card-${pr.pr_number}`}
+                      className={`p-3.5 rounded-xl border flex flex-col justify-between gap-3 ${
+                        isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#0d1117] border-[#30363d]'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-cyan-400">
+                              {pr.pr_number}
+                            </span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                              DRAF PURCHASE REQUEST
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-mono">
+                            {pr.status}
+                          </span>
+                        </div>
+
+                        <h4 className={`text-sm font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                          {pr.item_name}
+                        </h4>
+
+                        <div className="text-[11px] text-gray-400 mt-1 flex flex-wrap gap-x-2">
+                          <span>
+                            Pemohon: <strong className={isLight ? 'text-slate-700' : 'text-gray-200'}>{pr.requester_name}</strong>
+                          </span>
+                          <span>•</span>
+                          <span>{pr.department}</span>
+                          <span>•</span>
+                          <span>{pr.date}</span>
+                        </div>
+
+                        <div className="mt-2.5 p-2 rounded-lg bg-black/20 border border-slate-700/40 flex items-center justify-between text-xs font-mono">
+                          <div>
+                            <span className="text-[10px] text-gray-400 block">Kuantitas Permintaan:</span>
+                            <span className="font-bold text-amber-400">{pr.qty} Unit</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-gray-400 block">Estimasi Anggaran:</span>
+                            <span className="font-bold text-emerald-400">Rp {pr.estimated_cost.toLocaleString('id-ID')}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-gray-400 block">Urgensi:</span>
+                            <span
+                              className={`font-bold ${
+                                pr.urgency === 'High'
+                                  ? 'text-rose-400'
+                                  : pr.urgency === 'Medium'
+                                  ? 'text-amber-400'
+                                  : 'text-blue-400'
+                              }`}
+                            >
+                              {pr.urgency}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action buttons: Setujui (Approve) & Tolak (Reject) */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-[#30363d]">
+                        <button
+                          type="button"
+                          id={`btn-approve-pr-${pr.pr_number}`}
+                          onClick={() => approvePurchaseRequest(pr.pr_number)}
+                          className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition shadow-[0_0_10px_rgba(16,185,129,0.3)] active:scale-95"
+                          title="Setujui PR agar staf Purchasing dapat memproses penerbitan PO resmi"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Setujui (Approve)</span>
+                        </button>
+                        <button
+                          type="button"
+                          id={`btn-reject-pr-${pr.pr_number}`}
+                          onClick={() => rejectPurchaseRequest(pr.pr_number, 'Ditolak pimpinan di modul Executive')}
+                          className="flex-1 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/40 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-95"
+                          title="Tolak permohonan pengadaan barang ini"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Tolak (Reject)</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* SEKSI 3: ANTREAN PERSETUJUAN DOKUMEN LAINNYA (HR & STOCK MUTATIONS) */}
+            <div className="space-y-3 pt-4 border-t border-[#30363d]/60">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#8b949e]">
                 <span>Antrean Dokumen Pengadaan &amp; Berkas Umum (PR &amp; HR):</span>
                 <div className="flex items-center gap-2">
@@ -780,7 +927,7 @@ export const ExecutiveModule: React.FC = () => {
                           title="Tolak berkas pengajuan"
                         >
                           <XCircle className="w-3.5 h-3.5" />
-                          <span>Tolak</span>
+                          <span>Tolak (Reject)</span>
                         </button>
                       </div>
                     )}
