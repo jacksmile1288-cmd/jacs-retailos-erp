@@ -20,6 +20,14 @@ import {
   Info,
   Sparkles,
   Lock,
+  ArrowLeft,
+  Activity,
+  Building2,
+  KeyRound,
+  Cpu,
+  ClipboardList,
+  DoorOpen,
+  BookOpen,
 } from 'lucide-react';
 
 interface NavItem {
@@ -31,7 +39,7 @@ interface NavItem {
   badgeColor?: string;
 }
 
-// 6 Modul dengan proteksi akses (membutuhkan Super Admin atau sandi/PIN)
+// 7 Modul dengan proteksi akses (membutuhkan Super Admin atau sandi/PIN)
 const PROTECTED_NAV_MODULES: ActiveNavModule[] = [
   'master-data',
   'executive',
@@ -39,6 +47,7 @@ const PROTECTED_NAV_MODULES: ActiveNavModule[] = [
   'finance',
   'warehouse',
   'purchasing',
+  'admin',
 ];
 
 const PROTECTED_MODULE_NAMES: Record<string, { id: string; en: string }> = {
@@ -48,6 +57,7 @@ const PROTECTED_MODULE_NAMES: Record<string, { id: string; en: string }> = {
   'finance': { id: 'Keuangan & Akuntansi', en: 'Finance & Accounting' },
   'warehouse': { id: 'Gudang & Inventori', en: 'Warehouse & Inventory' },
   'purchasing': { id: 'Pengadaan & Pembelian', en: 'Purchasing' },
+  'admin': { id: 'Super Admin', en: 'Super Admin' },
 };
 
 export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => void }> = ({
@@ -59,6 +69,13 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
     setActiveNav,
     activeUser,
     isSuperAdminAuthenticated,
+    setIsSuperAdminAuthenticated,
+    exitSuperAdminSession,
+    superAdminTab,
+    setSuperAdminTab,
+    showToast,
+    isGlobalMaintenance,
+    businessProfile,
     products,
     purchasing,
     purchaseRequests,
@@ -68,6 +85,10 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
     leaveRequests,
     theme,
     language,
+    isModuleUnlocked,
+    unlockModule,
+    lockModule,
+    getModulePin,
   } = useApp();
   const [hoveredNavId, setHoveredNavId] = useState<string | null>(null);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
@@ -266,35 +287,111 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
       label: 'SUPER ADMIN',
       icon: ShieldAlert,
       neonColor: '#ec4899',
-      badge: 'DEV CONSOLE',
-      badgeColor: 'bg-pink-500/20 text-pink-400 border-pink-500/40',
     },
   ];
 
   const isSuperAdmin = Boolean(
-    isSuperAdminAuthenticated || activeUser?.role === 'Super Admin'
+    isSuperAdminAuthenticated
   );
 
-  // Handler Klik Menu Navigasi dengan Proteksi Otorisasi
-  const handleNavClick = (itemId: ActiveNavModule, itemLabel: string) => {
-    const isProtected = PROTECTED_NAV_MODULES.includes(itemId);
+  // Helper cek status kunci modul independen (berdiri sendiri)
+  const isModuleLockedForUser = (modId: ActiveNavModule) => {
+    // 1. Modul Bebas: HOME, DASHBOARD, POS (Terbuka untuk umum/kasir tanpa sandi)
+    if (modId === 'home' || modId === 'dashboard' || modId === 'pos') return false;
+    // 2. Setiap modul ber-password berdiri sendiri berdasarkan status unlock masing-masing
+    return !isModuleUnlocked(modId);
+  };
 
-    // Aturan Akses:
-    // - Jika user sudah Super Admin, buka modul secara langsung tanpa pop-up.
-    // - Jika belum, tahan perpindahan modul dan munculkan QuickAuthModal.
-    // - Modul 'home' dan 'pos' (serta dashboard) tetap bebas dibuka tanpa kunci.
-    if (isProtected && !isSuperAdmin) {
-      const modInfo = PROTECTED_MODULE_NAMES[itemId];
-      const targetTitle = modInfo ? (isEn ? modInfo.en : modInfo.id) : itemLabel;
-      setPendingNavModule(itemId);
-      setPendingNavTitle(targetTitle);
-      setIsAuthModalOpen(true);
+  // Handler Klik Menu Navigasi dengan Proteksi Otorisasi Independen
+  const handleNavClick = (itemId: ActiveNavModule, itemLabel: string) => {
+    // 1. Jika mengklik modul yang sedang aktif dan sudah terbuka, tidak perlu proses ulang
+    if (itemId === activeNav && isModuleUnlocked(itemId)) {
+      onCloseMobile();
       return;
     }
 
-    setActiveNav(itemId);
-    onCloseMobile();
+    // 2. Setiap kali pengguna berpindah ke modul lain di Sidebar, otomatis kunci kembali modul sebelumnya jika modul tersebut adalah modul ber-password
+    if (activeNav !== itemId && activeNav !== 'home' && activeNav !== 'dashboard' && activeNav !== 'pos') {
+      lockModule(activeNav);
+    }
+
+    // 3. Modul Bebas: HOME, DASHBOARD, POS & CASHIER (Tanpa proteksi sandi)
+    if (itemId === 'home' || itemId === 'dashboard' || itemId === 'pos') {
+      setActiveNav(itemId);
+      onCloseMobile();
+      return;
+    }
+
+    // 4. Modul Ber-Password (master-data, executive, hr, finance, purchasing, warehouse, admin):
+    // Selalu wajibkan input PIN / sandi otorisasi saat berpindah masuk ke modul divisi
+    const modInfo = PROTECTED_MODULE_NAMES[itemId];
+    const targetTitle = modInfo ? (isEn ? modInfo.en : modInfo.id) : itemLabel;
+    setPendingNavModule(itemId);
+    setPendingNavTitle(targetTitle);
+    setIsAuthModalOpen(true);
   };
+
+  // Navigasi Internal Khusus Konsol Super Admin (System Settings, Legalitas, Credentials, AI, Diagnostics, Audit Logs, Database)
+  const superAdminNavItems = [
+    {
+      id: 'system',
+      label: isEn ? 'SYSTEM & MAINTENANCE' : 'STATUS SISTEM & MAINTENANCE',
+      icon: Activity,
+      neonColor: '#00f2fe',
+      badge: isGlobalMaintenance ? 'LOCK' : undefined,
+      badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+    },
+    {
+      id: 'profile',
+      label: isEn ? 'LEGALITY & PROFILE' : 'LEGALITAS & PROFIL BISNIS',
+      icon: Building2,
+      neonColor: '#10b981',
+      badge: businessProfile?.isConfigured ? 'OK' : 'SETUP',
+      badgeColor: businessProfile?.isConfigured
+        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+        : 'bg-amber-500/20 text-amber-300 border-amber-500/40',
+    },
+    {
+      id: 'credentials',
+      label: isEn ? 'CREDENTIALS & PINS' : 'KREDENSIAL & RESET PIN',
+      icon: KeyRound,
+      neonColor: '#ec4899',
+    },
+    {
+      id: 'ai',
+      label: isEn ? 'AI SMART TOOLS' : 'AI INTELLIGENCE & TOOLS',
+      icon: Sparkles,
+      neonColor: '#a855f7',
+      badge: 'AI Smart',
+      badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+    },
+    {
+      id: 'sop',
+      label: isEn ? 'INFO CENTER & SOP' : 'INFO CENTER & PANDUAN SOP',
+      icon: BookOpen,
+      neonColor: '#38bdf8',
+      badge: '6 Divisi',
+      badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+    },
+    {
+      id: 'diagnostics',
+      label: isEn ? 'DIAGNOSTICS & TERMINALS' : 'DIAGNOSA & TERMINAL KASIR',
+      icon: Cpu,
+      neonColor: '#38bdf8',
+    },
+    {
+      id: 'logs',
+      label: isEn ? 'AUDIT TRAIL & LOGS' : 'AUDIT TRAIL & LOG KEAMANAN',
+      icon: ClipboardList,
+      neonColor: '#f59e0b',
+    },
+    {
+      id: 'migration',
+      label: isEn ? 'DATABASE & INGESTION' : 'DATABASE & INGESTION DATA',
+      icon: Database,
+      neonColor: '#06b6d4',
+    },
+  ];
 
   return (
     <>
@@ -336,138 +433,297 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
           </button>
         </div>
 
-        {/* 1. Navigation Menu List: Clean Primary Modules (Fit to Viewport) */}
+        {/* 1. Navigation Menu List: Clean Primary Modules or Super Admin Console */}
         <div className="flex-1 overflow-y-auto px-2.5 py-2 xl:py-2.5 space-y-1">
-          <div className="px-2.5 pb-1 text-[9px] xl:text-[10px] font-bold text-[#8b949e] uppercase tracking-wider select-none">
-            {isEn ? 'NAVIGATION MENU' : 'MENU NAVIGASI'}
-          </div>
+          {activeNav === 'admin' ? (
+            /* ========================================================
+               SUPER ADMIN CONSOLE NAVIGATION FOCUS
+               ======================================================== */
+            <div className="space-y-1 animate-fadeIn">
+              {/* Tombol Utama yang Menonjol: ← Kembali ke Menu Utama ERP */}
+              <div className="pb-2 border-b border-gray-700/30 mb-2">
+                <button
+                  type="button"
+                  id="btn-sidebar-back-to-erp-top"
+                  onClick={() => {
+                    exitSuperAdminSession();
+                    onCloseMobile();
+                  }}
+                  className={`w-full group flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-extrabold text-xs transition cursor-pointer border shadow-sm active:scale-95 ${
+                    isLight
+                      ? 'bg-cyan-50 border-cyan-300 text-cyan-800 hover:bg-cyan-100 hover:border-cyan-400'
+                      : 'bg-cyan-950/60 border-cyan-500/50 text-cyan-300 hover:bg-cyan-900/60 shadow-[0_0_15px_rgba(6,182,212,0.25)]'
+                  }`}
+                  title="Kembali ke Menu Utama / Dashboard Reguler"
+                >
+                  <ArrowLeft className="w-4 h-4 text-cyan-400 group-hover:-translate-x-0.5 transition-transform" />
+                  <span>← Kembali ke Menu Utama ERP</span>
+                </button>
+              </div>
 
-          {primaryNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeNav === item.id;
-            const isHovered = hoveredNavId === item.id;
+              {/* Header Kategori Super Admin Internal */}
+              <div className="px-2.5 pt-1 pb-1 flex items-center justify-between text-[9px] xl:text-[10px] font-bold text-pink-400 uppercase tracking-wider select-none font-mono">
+                <span className="flex items-center gap-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                  <span>{isEn ? 'SUPER ADMIN CONSOLE' : 'KONSOL SUPER ADMIN'}</span>
+                </span>
+                <span className="px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[8px]">
+                  ROOT
+                </span>
+              </div>
 
-            // Thick multi-layer neon glow with specific module color and instant reactive hover
-            const navStyle = getReactiveNeonGlowStyle(item.neonColor, isActive, isHovered, isLight);
+              {/* List Navigasi Internal Super Admin */}
+              {superAdminNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = superAdminTab === item.id;
+                const isHovered = hoveredNavId === item.id;
+                const navStyle = getReactiveNeonGlowStyle(item.neonColor, isActive, isHovered, isLight);
 
-            return (
-              <button
-                key={item.id}
-                id={`sidebar-nav-${item.id}`}
-                onClick={() => handleNavClick(item.id, item.label)}
-                onMouseEnter={() => setHoveredNavId(item.id)}
-                onMouseLeave={() => setHoveredNavId(null)}
-                style={isLight || isActive ? undefined : navStyle}
-                className={`w-full group flex items-center justify-between px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl text-left transition-all duration-150 ease-out cursor-pointer ${
-                  isActive
-                    ? isLight
-                      ? 'border-l-4 border-cyan-600 bg-cyan-100 text-cyan-900 shadow-sm font-bold'
-                      : 'border-l-4 border-cyan-400 bg-cyan-950/70 shadow-[inset_0_0_15px_rgba(6,182,212,0.35)] text-cyan-300 font-extrabold'
-                    : isLight
-                    ? 'text-slate-800 hover:bg-slate-100 hover:text-slate-900 font-semibold'
-                    : 'text-slate-200 dark:text-slate-200 hover:bg-slate-800 hover:text-white font-semibold'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 xl:gap-3 min-w-0">
-                  {/* Icon with Individual Glow */}
-                  <div
-                    className={`w-6 h-6 xl:w-6.5 xl:h-6.5 rounded-lg flex items-center justify-center transition shrink-0 ${
+                return (
+                  <button
+                    key={item.id}
+                    id={`sidebar-super-admin-nav-${item.id}`}
+                    onClick={() => {
+                      setSuperAdminTab(item.id);
+                      localStorage.setItem('jacs_super_admin_tab', item.id);
+                      onCloseMobile();
+                    }}
+                    onMouseEnter={() => setHoveredNavId(item.id)}
+                    onMouseLeave={() => setHoveredNavId(null)}
+                    style={isLight || isActive ? undefined : navStyle}
+                    className={`w-full group flex items-center justify-between px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl text-left transition-all duration-150 ease-out cursor-pointer ${
                       isActive
                         ? isLight
-                          ? 'bg-cyan-600 text-white shadow-sm'
-                          : 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
+                          ? 'border-l-4 border-pink-600 bg-pink-100 text-pink-900 shadow-sm font-bold'
+                          : 'border-l-4 border-pink-400 bg-pink-950/70 shadow-[inset_0_0_15px_rgba(236,72,153,0.35)] text-pink-300 font-extrabold'
                         : isLight
-                        ? 'bg-slate-100 text-slate-600 group-hover:text-slate-900 group-hover:bg-slate-200'
-                        : 'bg-[#0d1117] text-slate-300 border border-[#30363d]'
+                        ? 'text-slate-800 hover:bg-slate-100 hover:text-slate-900 font-semibold'
+                        : 'text-slate-200 dark:text-slate-200 hover:bg-slate-800 hover:text-white font-semibold'
                     }`}
-                    style={
-                      !isActive && !isLight && isHovered
-                        ? {
-                            backgroundColor: `${item.neonColor}25`,
-                            color: item.neonColor,
-                            boxShadow: `0 0 10px ${item.neonColor}50`,
-                          }
-                        : {}
-                    }
                   >
-                    <Icon
-                      className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${
-                        isActive
-                          ? isLight
-                            ? 'text-white'
-                            : 'text-cyan-300 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
+                    <div className="flex items-center gap-2.5 xl:gap-3 min-w-0">
+                      <div
+                        className={`w-6 h-6 xl:w-6.5 xl:h-6.5 rounded-lg flex items-center justify-center transition shrink-0 ${
+                          isActive
+                            ? isLight
+                              ? 'bg-pink-600 text-white shadow-sm'
+                              : 'bg-pink-500/20 text-pink-300 border border-pink-400/50 drop-shadow-[0_0_6px_rgba(236,72,153,0.8)]'
+                            : isLight
+                            ? 'bg-slate-100 text-slate-600 group-hover:text-slate-900 group-hover:bg-slate-200'
+                            : 'bg-[#0d1117] text-slate-300 border border-[#30363d]'
+                        }`}
+                        style={
+                          !isActive && !isLight && isHovered
+                            ? {
+                                backgroundColor: `${item.neonColor}25`,
+                                color: item.neonColor,
+                                boxShadow: `0 0 10px ${item.neonColor}50`,
+                              }
+                            : {}
+                        }
+                      >
+                        <Icon
+                          className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${
+                            isActive
+                              ? isLight
+                                ? 'text-white'
+                                : 'text-pink-300 drop-shadow-[0_0_6px_rgba(236,72,153,0.8)]'
+                              : isLight
+                              ? 'text-slate-600 group-hover:text-slate-900'
+                              : 'text-slate-300'
+                          }`}
+                        />
+                      </div>
+                      <span
+                        className={`text-xs xl:text-sm tracking-wide truncate ${
+                          isActive
+                            ? isLight
+                              ? 'text-pink-900 font-bold'
+                              : 'text-pink-300 drop-shadow-[0_0_6px_rgba(236,72,153,0.8)] font-bold'
                           : isLight
-                          ? 'text-slate-600 group-hover:text-slate-900'
-                          : 'text-slate-300'
-                      }`}
-                    />
-                  </div>
+                          ? 'text-slate-800 group-hover:text-slate-900 font-semibold'
+                          : 'text-slate-200 group-hover:text-white font-semibold'
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
 
-                  {/* Clean Menu Label Only */}
-                  <span
-                    className={`text-xs xl:text-sm tracking-wide truncate ${
+                    {Boolean(item.badge) && (
+                      <span
+                        className={`text-[9px] xl:text-[10px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                          isActive
+                            ? isLight
+                              ? 'bg-pink-200 text-pink-900 border-pink-400'
+                              : 'bg-pink-500/25 border-pink-400/50 text-pink-200 drop-shadow-[0_0_6px_rgba(236,72,153,0.8)]'
+                            : item.badgeColor || 'bg-gray-800 text-gray-400 border-gray-700'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+
+              {/* Tombol Kunci Sesi di Bagian Bawah Navigasi Super Admin */}
+              <div className="pt-3 border-t border-gray-700/30 mt-2">
+                <button
+                  type="button"
+                  id="btn-sidebar-lock-super-admin-bottom"
+                  onClick={() => {
+                    exitSuperAdminSession();
+                    onCloseMobile();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition cursor-pointer active:scale-95"
+                  title="Logout / Kunci Sesi Super Admin"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Kunci Sesi Super Admin</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* ========================================================
+               REGULAR ERP NAVIGATION MENU LIST
+               ======================================================== */
+            <div className="space-y-1">
+              <div className="px-2.5 pb-1 text-[9px] xl:text-[10px] font-bold text-[#8b949e] uppercase tracking-wider select-none">
+                {isEn ? 'NAVIGATION MENU' : 'MENU NAVIGASI'}
+              </div>
+
+              {primaryNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeNav === item.id;
+                const isHovered = hoveredNavId === item.id;
+
+                // Thick multi-layer neon glow with specific module color and instant reactive hover
+                const navStyle = getReactiveNeonGlowStyle(item.neonColor, isActive, isHovered, isLight);
+
+                return (
+                  <button
+                    key={item.id}
+                    id={`sidebar-nav-${item.id}`}
+                    onClick={() => handleNavClick(item.id, item.label)}
+                    onMouseEnter={() => setHoveredNavId(item.id)}
+                    onMouseLeave={() => setHoveredNavId(null)}
+                    style={isLight || isActive ? undefined : navStyle}
+                    className={`w-full group flex items-center justify-between px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl text-left transition-all duration-150 ease-out cursor-pointer ${
                       isActive
                         ? isLight
-                          ? 'text-cyan-900 font-bold'
-                          : 'text-cyan-300 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)] font-bold'
+                          ? 'border-l-4 border-cyan-600 bg-cyan-100 text-cyan-900 shadow-sm font-bold'
+                          : 'border-l-4 border-cyan-400 bg-cyan-950/70 shadow-[inset_0_0_15px_rgba(6,182,212,0.35)] text-cyan-300 font-extrabold'
                         : isLight
-                        ? 'text-slate-800 group-hover:text-slate-900 font-semibold'
-                        : 'text-slate-200 group-hover:text-white font-semibold'
+                        ? 'text-slate-800 hover:bg-slate-100 hover:text-slate-900 font-semibold'
+                        : 'text-slate-200 dark:text-slate-200 hover:bg-slate-800 hover:text-white font-semibold'
                     }`}
                   >
-                    {item.label}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
-                  {/* Indikator Gembok Kecil jika modul terproteksi dan user bukan Super Admin */}
-                  {PROTECTED_NAV_MODULES.includes(item.id) && !isSuperAdmin && (
-                    <span
-                      className="p-1 rounded-md text-amber-400 bg-amber-500/15 border border-amber-500/30 shrink-0 flex items-center justify-center shadow-xs"
-                      title={isEn ? 'Requires Super Admin authorization' : 'Terkunci - Wajib Otorisasi Super Admin'}
-                    >
-                      <Lock className="w-3 h-3 text-amber-400" />
-                    </span>
-                  )}
-
-                  {/* Optional Badge: Jangan render badge angka sama sekali jika 0 atau tidak ada dokumen pending */}
-                  {item.id === 'executive' ? (
-                    totalExecutivePending > 0 && Boolean(item.badge) ? (
-                      <span
-                        className={`text-[10px] xl:text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                    <div className="flex items-center gap-2.5 xl:gap-3 min-w-0">
+                      {/* Icon with Individual Glow */}
+                      <div
+                        className={`w-6 h-6 xl:w-6.5 xl:h-6.5 rounded-lg flex items-center justify-center transition shrink-0 ${
                           isActive
                             ? isLight
-                              ? 'bg-cyan-200/80 border-cyan-400 text-cyan-900'
-                              : 'bg-cyan-500/25 border-cyan-400/50 text-cyan-200 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
+                              ? 'bg-cyan-600 text-white shadow-sm'
+                              : 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
                             : isLight
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                            : item.badgeColor || 'bg-gray-800 text-gray-400 border-gray-700'
+                            ? 'bg-slate-100 text-slate-600 group-hover:text-slate-900 group-hover:bg-slate-200'
+                            : 'bg-[#0d1117] text-slate-300 border border-[#30363d]'
                         }`}
+                        style={
+                          !isActive && !isLight && isHovered
+                            ? {
+                                backgroundColor: `${item.neonColor}25`,
+                                color: item.neonColor,
+                                boxShadow: `0 0 10px ${item.neonColor}50`,
+                              }
+                            : {}
+                        }
                       >
-                        {item.badge}
-                      </span>
-                    ) : null
-                  ) : (
-                    Boolean(item.badge) && item.badge !== 0 && item.badge !== '0' && (
+                        <Icon
+                          className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${
+                            isActive
+                              ? isLight
+                                ? 'text-white'
+                                : 'text-cyan-300 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
+                              : isLight
+                              ? 'text-slate-600 group-hover:text-slate-900'
+                              : 'text-slate-300'
+                          }`}
+                        />
+                      </div>
+
+                      {/* Clean Menu Label Only */}
                       <span
-                        className={`text-[10px] xl:text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                        className={`text-xs xl:text-sm tracking-wide truncate ${
                           isActive
                             ? isLight
-                              ? 'bg-cyan-200/80 border-cyan-400 text-cyan-900'
-                              : 'bg-cyan-500/25 border-cyan-400/50 text-cyan-200 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
+                              ? 'text-cyan-900 font-bold'
+                              : 'text-cyan-300 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)] font-bold'
                             : isLight
-                            ? 'bg-slate-200 text-slate-800 border-slate-300'
-                            : item.badgeColor || 'bg-gray-800 text-gray-400 border-gray-700'
+                            ? 'text-slate-800 group-hover:text-slate-900 font-semibold'
+                            : 'text-slate-200 group-hover:text-white font-semibold'
                         }`}
                       >
-                        {item.badge}
+                        {item.label}
                       </span>
-                    )
-                  )}
-                </div>
-              </button>
-            );
-          })}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
+                      {/* Indikator Gembok Kecil */}
+                      {isModuleLockedForUser(item.id) && (
+                        <span
+                          className="p-1 rounded-md text-amber-400 bg-amber-500/15 border border-amber-500/30 shrink-0 flex items-center justify-center shadow-xs"
+                          title={
+                            item.id === 'admin'
+                              ? (isEn ? 'Super Admin Console Locked - Master Password Required' : 'Super Admin Terkunci - Wajib Sandi Master')
+                              : (isEn ? 'Locked - Division authorization required' : 'Terkunci - Wajib Otorisasi Divisi')
+                          }
+                        >
+                          <Lock className="w-3 h-3 text-amber-400" />
+                        </span>
+                      )}
+
+                      {/* Optional Badge */}
+                      {item.id === 'executive' ? (
+                        totalExecutivePending > 0 && Boolean(item.badge) ? (
+                          <span
+                            className={`text-[10px] xl:text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                              isActive
+                                ? isLight
+                                  ? 'bg-cyan-200/80 border-cyan-400 text-cyan-900'
+                                  : 'bg-cyan-500/25 border-cyan-400/50 text-cyan-200 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
+                                : isLight
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                : item.badgeColor || 'bg-gray-800 text-gray-400 border-gray-700'
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        ) : null
+                      ) : (
+                        Boolean(item.badge) && item.badge !== 0 && item.badge !== '0' && (
+                          <span
+                            className={`text-[10px] xl:text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                              isActive
+                                ? isLight
+                                  ? 'bg-cyan-200/80 border-cyan-400 text-cyan-900'
+                                  : 'bg-cyan-500/25 border-cyan-400/50 text-cyan-200 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
+                                : isLight
+                                ? 'bg-slate-200 text-slate-800 border-slate-300'
+                                : item.badgeColor || 'bg-gray-800 text-gray-400 border-gray-700'
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* 3. Footer Brand & Tentang Sistem Trigger */}
@@ -529,10 +785,16 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
           onCloseMobile();
         }}
         moduleTitle={pendingNavTitle}
+        targetModule={pendingNavModule || undefined}
+        requireMasterPassword={pendingNavModule === 'admin'}
         subtitle={
-          isEn
-            ? `Masukkan sandi atau PIN untuk mengakses ${pendingNavTitle}`
-            : `Masukkan sandi atau PIN untuk mengakses ${pendingNavTitle}`
+          pendingNavModule === 'admin'
+            ? (isEn
+                ? `PIN (${getModulePin('admin')}) or Master Password to access Super Admin Console`
+                : `Masukkan PIN (${getModulePin('admin')}) atau Sandi Master Super Admin`)
+            : isEn
+            ? `Enter PIN (${getModulePin(pendingNavModule || '')}) to access ${pendingNavTitle}`
+            : `Masukkan PIN (${getModulePin(pendingNavModule || '')}) untuk mengakses ${pendingNavTitle}`
         }
       />
     </>
