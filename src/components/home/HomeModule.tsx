@@ -337,6 +337,11 @@ export const HomeModule: React.FC = () => {
     businessProfile,
     activeUser,
     isSuperAdminAuthenticated,
+    setIsSuperAdminAuthenticated,
+    isModuleUnlocked,
+    unlockModule,
+    setSuperAdminTab,
+    showToast,
   } = useApp();
   const [hoveredRoleId, setHoveredRoleId] = useState<string | null>(null);
 
@@ -357,18 +362,22 @@ export const HomeModule: React.FC = () => {
     isSuperAdminAuthenticated || activeUser?.role === 'Super Admin'
   );
 
-  const handleOpenModule = (targetId: string, targetName: string) => {
-    const protectedIds = ['master-data', 'executive', 'hr', 'finance', 'warehouse', 'purchasing'];
-    const isProtected = protectedIds.includes(targetId);
+  const isModuleLockedForUser = (modId: string) => {
+    if (modId === 'home' || modId === 'dashboard' || modId === 'pos') return false;
+    return !isModuleUnlocked(modId);
+  };
 
-    if (isProtected && !isSuperAdmin) {
-      setPendingNav(targetId as ActiveNavModule);
-      setPendingNavTitle(targetName);
-      setIsAuthModalOpen(true);
+  const handleOpenModule = (targetId: string, targetName: string) => {
+    // 1. Modul Bebas: HOME, DASHBOARD, POS (Terbuka untuk umum/kasir tanpa sandi)
+    if (targetId === 'home' || targetId === 'dashboard' || targetId === 'pos') {
+      setActiveNav(targetId as ActiveNavModule);
       return;
     }
 
-    setActiveNav(targetId as ActiveNavModule);
+    // 2. Modul Ber-Password: Selalu minta PIN / sandi otorisasi saat membuka modul divisi
+    setPendingNav(targetId as ActiveNavModule);
+    setPendingNavTitle(targetName);
+    setIsAuthModalOpen(true);
   };
 
   const activeDivisionInfo =
@@ -472,18 +481,25 @@ export const HomeModule: React.FC = () => {
               desc: role.summary,
             };
 
-          const isProtected = ['master-data', 'executive', 'hr', 'finance', 'warehouse', 'purchasing'].includes(role.id);
-          const isLocked = isProtected && !isSuperAdmin;
+          const isLocked = isModuleLockedForUser(role.id);
 
           return (
-            <button
+            <div
               key={role.id}
               id={`neon-card-role-${role.id}`}
+              role="button"
+              tabIndex={0}
               onClick={() => handleCardClick(role)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleCardClick(role);
+                }
+              }}
               onMouseEnter={() => setHoveredRoleId(role.id)}
               onMouseLeave={() => setHoveredRoleId(null)}
               style={activeStyle}
-              className="group relative p-4 xl:p-5 rounded-2xl text-left transition-all duration-150 ease-out cursor-pointer overflow-hidden flex flex-col justify-between h-full min-h-[165px] xl:min-h-[185px]"
+              className="group relative p-4 xl:p-5 rounded-2xl text-left transition-all duration-150 ease-out cursor-pointer overflow-hidden flex flex-col justify-between h-full min-h-[165px] xl:min-h-[185px] focus:outline-hidden"
             >
               {/* Top Accent Neon Bar Strip */}
               <div
@@ -552,24 +568,46 @@ export const HomeModule: React.FC = () => {
 
               {/* Bottom Action Links: Selalu rata di dasar kartu */}
               <div className="w-full pt-2.5 xl:pt-3 mt-2.5 xl:mt-3 border-t border-gray-700/30 flex items-center justify-between text-xs xl:text-sm">
-                <span className="text-slate-400 flex items-center gap-1 group-hover:text-slate-300 transition-colors">
-                  <span>{isEn ? 'View SOP' : 'Lihat SOP'}</span>
+                <button
+                  type="button"
+                  id={`btn-home-view-sop-${role.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSuperAdminTab('sop');
+                    localStorage.setItem('jacs_super_admin_tab', 'sop');
+                    if (role.id) {
+                      localStorage.setItem('jacs_sop_active_division', role.id);
+                    }
+                    unlockModule('admin');
+                    setIsSuperAdminAuthenticated(true);
+                    setActiveNav('admin');
+                    showToast(
+                      isEn
+                        ? `Navigating to Enterprise Info Center & SOP for ${divisionInfo.name}...`
+                        : `Membuka tab Info Center & SOP untuk ${divisionInfo.name} di Super Admin...`
+                    );
+                  }}
+                  className="text-slate-400 hover:text-cyan-400 flex items-center gap-1 group-hover:text-cyan-300 transition-colors cursor-pointer py-0.5"
+                  title={isEn ? 'View SOP in Super Admin' : 'Lihat Info Center & SOP di Modul Super Admin'}
+                >
+                  <span className="hover:underline">{isEn ? 'View SOP' : 'Lihat SOP'}</span>
                   <ChevronRight className="w-3.5 h-3.5" />
-                </span>
-                <span
+                </button>
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleOpenModule(role.id, divisionInfo.name);
                   }}
-                  className="inline-flex items-center gap-1.5 font-bold hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1.5 font-bold hover:underline cursor-pointer bg-transparent border-0 p-0 text-xs xl:text-sm"
                   style={{ color: role.colorHex }}
                 >
                   {isLocked && <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
                   <span>{isEn ? 'Open Module' : 'Buka Modul'}</span>
                   <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                </span>
+                </button>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -873,6 +911,7 @@ export const HomeModule: React.FC = () => {
         }}
         onSuccess={() => {
           if (pendingNav) {
+            unlockModule(pendingNav);
             setActiveNav(pendingNav);
             setPendingNav(null);
           }
@@ -880,10 +919,16 @@ export const HomeModule: React.FC = () => {
           setIsDetailModalOpen(false);
         }}
         moduleTitle={pendingNavTitle}
+        targetModule={pendingNav || undefined}
+        requireMasterPassword={pendingNav === 'admin'}
         subtitle={
-          isEn
-            ? `Authorization required to access ${pendingNavTitle}`
-            : `Otorisasi dibutuhkan untuk mengakses ${pendingNavTitle}`
+          pendingNav === 'admin'
+            ? (isEn
+                ? 'PIN (1234) or Master Password to access Super Admin'
+                : 'Masukkan PIN (1234) atau Sandi Master Super Admin')
+            : isEn
+            ? `Enter PIN (1234) to access ${pendingNavTitle}`
+            : `Masukkan PIN (1234) untuk mengakses ${pendingNavTitle}`
         }
       />
     </div>
