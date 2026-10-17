@@ -171,7 +171,7 @@ export const StockAlertTab: React.FC<StockAlertTabProps> = ({
       createPurchaseRequest({
         date: dateStr,
         department: 'Warehouse & Logistik',
-        requester_name: `${activeUser.name} (${activeUser.role})`,
+        requester_name: activeUser ? `${activeUser.name} (${activeUser.role})` : 'Staf Gudang (Sistem)',
         item_name: p.name,
         qty: orderQty,
         estimated_cost: estimatedCost,
@@ -209,7 +209,7 @@ export const StockAlertTab: React.FC<StockAlertTabProps> = ({
       createPurchaseRequest({
         date: dateStr,
         department: 'Warehouse & Logistik',
-        requester_name: `${activeUser.name} (${activeUser.role})`,
+        requester_name: activeUser ? `${activeUser.name} (${activeUser.role})` : 'Staf Gudang (Sistem)',
         item_name: p.name,
         qty: orderQty,
         estimated_cost: estimatedCost,
