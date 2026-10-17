@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { PurchaseOrder } from '../../types';
 import { getReactiveNeonGlowStyle } from '../../utils/neonGlow';
 import { AutoPoSummaryModal } from '../purchasing/AutoPoSummaryModal';
+import { GoodsReceiptModal } from '../purchasing/GoodsReceiptModal';
 import { StockAlertTab } from './StockAlertTab';
 import { StockOpnameModal } from './StockOpnameModal';
 import {
@@ -77,6 +78,20 @@ export const WarehouseModule: React.FC = () => {
     'Stock Opname Koreksi Fisik'
   );
   const [summaryModalPOs, setSummaryModalPOs] = useState<PurchaseOrder[] | null>(null);
+  const [isGrModalOpen, setIsGrModalOpen] = useState(false);
+  const [selectedPoForGr, setSelectedPoForGr] = useState<PurchaseOrder | null>(null);
+
+  const approvedPOs = useMemo(() => {
+    return (purchasing || []).filter((po) => {
+      const s = (po.status || '').toLowerCase();
+      return (
+        s.includes('approv') ||
+        s.includes('disetujui') ||
+        s.includes('dipesan') ||
+        s.includes('sent')
+      ) && !s.includes('receiv') && !s.includes('selesai');
+    });
+  }, [purchasing]);
 
   const handleReorderAll = () => {
     const res = reorderAllLowStock();
@@ -441,6 +456,53 @@ export const WarehouseModule: React.FC = () => {
             >
               <span>{isEn ? 'Detail Alert' : 'Detail Alert'}</span>
               <ExternalLink className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* BANNER KONFIRMASI PENERIMAAN BARANG PO (GOODS RECEIPT) */}
+      {approvedPOs.length > 0 && (
+        <div
+          id="warehouse-gr-ready-banner"
+          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl border text-xs transition duration-150 ${
+            isLight
+              ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950 shadow-sm'
+              : 'border border-emerald-500/40 bg-emerald-950/20 text-emerald-200'
+          }`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 shrink-0">
+              <PackageCheck className="w-4 h-4" />
+            </span>
+            <div className="space-y-0.5 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-emerald-400">
+                  {isEn ? 'Goods Receipt Ready (PO Approved):' : 'Konfirmasi Penerimaan Barang (Goods Receipt PO):'}
+                </span>
+                <span className="px-2 py-0.2 rounded-full font-mono font-bold text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  {approvedPOs.length} PO Siap Diterima Fisik
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-400 truncate max-w-xl">
+                {approvedPOs.map((p) => `${p.po_number} (${p.supplier_name})`).join(' • ')}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              id={`btn-wh-open-gr-${approvedPOs[0].po_number}`}
+              onClick={() => {
+                setSelectedPoForGr(approvedPOs[0]);
+                setIsGrModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs transition cursor-pointer active:scale-95 shadow-sm"
+              title="Konfirmasi fisik barang datang (Goods Receipt) ke stok gudang"
+            >
+              <PackageCheck className="w-3.5 h-3.5" />
+              <span>{isEn ? `Receive Goods (${approvedPOs[0].po_number})` : `Terima Barang (${approvedPOs[0].po_number})`}</span>
             </button>
           </div>
         </div>
@@ -1152,6 +1214,17 @@ export const WarehouseModule: React.FC = () => {
           isLight={isLight}
         />
       )}
+
+      {/* MODAL: VERIFIKASI PENERIMAAN BARANG (GOODS RECEIPT / GR) */}
+      <GoodsReceiptModal
+        isOpen={isGrModalOpen}
+        po={selectedPoForGr}
+        onClose={() => {
+          setIsGrModalOpen(false);
+          setSelectedPoForGr(null);
+        }}
+        isLight={isLight}
+      />
     </div>
   );
 };
