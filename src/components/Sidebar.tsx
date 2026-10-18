@@ -215,7 +215,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
   const primaryNavItems: NavItem[] = [
     {
       id: 'home',
-      label: isEn ? 'HOME' : 'BERANDA',
+      label: isEn ? 'HOME' : 'HOME',
       icon: Home,
       neonColor: '#00f2fe',
     },

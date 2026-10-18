@@ -357,13 +357,7 @@ export const HomeModule: React.FC = () => {
               <Store className="w-4 h-4" />
               <span>{isEn ? 'Open POS Cashier' : 'Buka Terminal Kasir'}</span>
             </button>
-            <button
-              onClick={() => setActiveNav('admin')}
-              className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 font-semibold text-sm border border-slate-700 transition-colors"
-            >
-              <BookOpen className="w-4 h-4 text-indigo-400" />
-              <span>{isEn ? 'Master SOP & Settings' : 'Super Admin & SOP'}</span>
-            </button>
+            
           </div>
         </div>
       </div>
@@ -379,8 +373,13 @@ export const HomeModule: React.FC = () => {
             <div
               key={mod.id}
               onClick={() => handleCardClick(mod.targetNav, mod.title)}
-              className="group relative flex flex-col justify-between rounded-xl bg-slate-900/90 border border-slate-800/80 hover:border-slate-700 p-5 shadow-lg transition-all duration-200 hover:-translate-y-1 cursor-pointer overflow-hidden"
-              style={getReactiveNeonGlowStyle(mod.colorHex)}
+              className="group relative flex flex-col justify-between rounded-2xl bg-slate-900/90 p-5 shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer overflow-hidden"
+              style={{
+                borderColor: mod.colorHex,
+                borderWidth: '2px',
+                borderStyle: 'solid',
+                boxShadow: `0 0 16px -2px ${mod.colorHex}88, 0 0 32px -4px ${mod.colorHex}44, inset 0 0 16px -4px ${mod.colorHex}33`,
+              }}
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
