@@ -2346,7 +2346,7 @@ export const DEFAULT_BUSINESS_PROFILE: import('../types').BusinessEntityProfile 
   licenseNumber: 'NIB: 9120003819201 / NPWP: 01.345.678.9-012.000',
   phone: '(021) 515-8888 / 0812-8888-9999',
   email: 'official@jacs-retailos.id',
-  logoUrl: '/LOGO-removebg-preview.png',
+  logoUrl: '/logo.png',
   website: 'https://jacs-retailos.id',
   headerNote: 'Unified Retail Operating System & Enterprise Management',
   footerNote: 'Terima kasih atas kunjungan & kepercayaan Anda berbelanja bersama kami.',
