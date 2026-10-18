@@ -1,3 +1,4 @@
+cat << 'EOF' > src/components/Sidebar.tsx
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { ActiveNavModule } from '../types';
@@ -39,7 +40,6 @@ interface NavItem {
   badgeColor?: string;
 }
 
-// 7 Modul dengan proteksi akses (membutuhkan Super Admin atau sandi/PIN)
 const PROTECTED_NAV_MODULES: ActiveNavModule[] = [
   'master-data',
   'executive',
@@ -93,7 +93,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
   const [hoveredNavId, setHoveredNavId] = useState<string | null>(null);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
-  // State untuk Proteksi Akses Modul (QuickAuthModal)
   const [pendingNavModule, setPendingNavModule] = useState<ActiveNavModule | null>(null);
   const [pendingNavTitle, setPendingNavTitle] = useState<string>('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -101,14 +100,11 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
   const isLight = theme === 'light';
   const isEn = language === 'en';
 
-  // 1. Executive Pending Approvals & Authorizations (status === 'PENDING' / 'PENDING_APPROVAL')
   const totalExecutivePending = useMemo(() => {
-    // a. Dokumen dalam antrean persetujuan eksekutif
     const pendingInQueue = (approvalQueue || []).filter(
       (a) => a.status === 'PENDING' || (a.status as string) === 'PENDING_APPROVAL'
     );
 
-    // b. Berkas PO bernilai tinggi/direksi yang masih pending persetujuan
     const pendingExecutivePOs = (purchasing || []).filter((po) => {
       const s = (po.status || '').toUpperCase().trim();
       const isPending =
@@ -126,7 +122,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
       return !inQueue;
     });
 
-    // c. Berkas promosi yang berstatus pending otorisasi
     const pendingPromos = (promotions || []).filter((p) => {
       const s = (p.status || '').toUpperCase().trim();
       return s === 'PENDING' || s === 'PENDING_APPROVAL';
@@ -135,7 +130,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
     return pendingInQueue.length + pendingExecutivePOs.length + pendingPromos.length;
   }, [approvalQueue, purchasing, promotions]);
 
-  // 2. Warehouse Stock Alerts: Filter out items with active draft PRs or in-process restock POs
   const lowStockProducts = (products || []).filter((p) => {
     const minStock = p.min_stock || 10;
     return (
@@ -149,7 +143,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
     const pName = p.name.toLowerCase().trim();
     const pId = p.id.toLowerCase().trim();
 
-    // Check if item has draft PR / active PR in purchaseRequests
     const hasActivePR = (purchaseRequests || []).some((pr) => {
       const prItem = (pr.item_name || '').toLowerCase().trim();
       const isNameMatch =
@@ -165,7 +158,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
 
     if (hasActivePR) return false;
 
-    // Check if item is already in an active restock PO (in process of ordering / restock)
     const hasActivePO = (purchasing || []).some((po) => {
       const isStatusActive =
         po.status !== 'Cancelled' &&
@@ -211,7 +203,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
 
   const pendingLeavesCount = (leaveRequests || []).filter((l) => l.status === 'Menunggu').length;
 
-  // PRIMARY MENU ITEMS (Clean Single-Language Based on Active Language)
   const primaryNavItems: NavItem[] = [
     {
       id: 'home',
@@ -290,40 +281,29 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
     },
   ];
 
-  const isSuperAdmin = Boolean(
-    isSuperAdminAuthenticated
-  );
+  const isSuperAdmin = Boolean(isSuperAdminAuthenticated);
 
-  // Helper cek status kunci modul independen (berdiri sendiri)
   const isModuleLockedForUser = (modId: ActiveNavModule) => {
-    // 1. Modul Bebas: HOME, DASHBOARD, POS (Terbuka untuk umum/kasir tanpa sandi)
     if (modId === 'home' || modId === 'dashboard' || modId === 'pos') return false;
-    // 2. Setiap modul ber-password berdiri sendiri berdasarkan status unlock masing-masing
     return !isModuleUnlocked(modId);
   };
 
-  // Handler Klik Menu Navigasi dengan Proteksi Otorisasi Independen
   const handleNavClick = (itemId: ActiveNavModule, itemLabel: string) => {
-    // 1. Jika mengklik modul yang sedang aktif dan sudah terbuka, tidak perlu proses ulang
     if (itemId === activeNav && isModuleUnlocked(itemId)) {
       onCloseMobile();
       return;
     }
 
-    // 2. Setiap kali pengguna berpindah ke modul lain di Sidebar, otomatis kunci kembali modul sebelumnya jika modul tersebut adalah modul ber-password
     if (activeNav !== itemId && activeNav !== 'home' && activeNav !== 'dashboard' && activeNav !== 'pos') {
       lockModule(activeNav);
     }
 
-    // 3. Modul Bebas: HOME, DASHBOARD, POS & CASHIER (Tanpa proteksi sandi)
     if (itemId === 'home' || itemId === 'dashboard' || itemId === 'pos') {
       setActiveNav(itemId);
       onCloseMobile();
       return;
     }
 
-    // 4. Modul Ber-Password (master-data, executive, hr, finance, purchasing, warehouse, admin):
-    // Selalu wajibkan input PIN / sandi otorisasi saat berpindah masuk ke modul divisi
     const modInfo = PROTECTED_MODULE_NAMES[itemId];
     const targetTitle = modInfo ? (isEn ? modInfo.en : modInfo.id) : itemLabel;
     setPendingNavModule(itemId);
@@ -331,7 +311,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
     setIsAuthModalOpen(true);
   };
 
-  // Navigasi Internal Khusus Konsol Super Admin (System Settings, Legalitas, Credentials, AI, Diagnostics, Audit Logs, Database)
   const superAdminNavItems = [
     {
       id: 'system',
@@ -395,7 +374,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
 
   return (
     <>
-      {/* Mobile backdrop */}
       {isOpenMobile && (
         <div
           className="fixed inset-0 bg-black/60 z-40 lg:hidden"
@@ -411,7 +389,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
             : 'bg-[#161b22] border-[#30363d] text-[#e6edf3]'
         } ${isOpenMobile ? 'translate-x-0 z-50 top-0' : '-translate-x-full'}`}
       >
-        {/* 2. Brand Header: JacS RetailOS ERP (Sidebar Kiri Atas) */}
         <div
           className={`h-16 px-3.5 xl:px-4 flex items-center justify-between border-b transition-colors shrink-0 ${
             isLight ? 'border-slate-200 bg-white' : 'border-[#30363d] bg-[#161b22]'
@@ -433,14 +410,9 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
           </button>
         </div>
 
-        {/* 1. Navigation Menu List: Clean Primary Modules or Super Admin Console */}
         <div className="flex-1 overflow-y-auto px-2.5 py-2 xl:py-2.5 space-y-1">
           {activeNav === 'admin' ? (
-            /* ========================================================
-               SUPER ADMIN CONSOLE NAVIGATION FOCUS
-               ======================================================== */
             <div className="space-y-1 animate-fadeIn">
-              {/* Tombol Utama yang Menonjol: ← Kembali ke Menu Utama ERP */}
               <div className="pb-2 border-b border-gray-700/30 mb-2">
                 <button
                   type="button"
@@ -461,7 +433,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                 </button>
               </div>
 
-              {/* Header Kategori Super Admin Internal */}
               <div className="px-2.5 pt-1 pb-1 flex items-center justify-between text-[9px] xl:text-[10px] font-bold text-pink-400 uppercase tracking-wider select-none font-mono">
                 <span className="flex items-center gap-1.5">
                   <ShieldAlert className="w-3.5 h-3.5 text-pink-400 shrink-0" />
@@ -472,7 +443,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                 </span>
               </div>
 
-              {/* List Navigasi Internal Super Admin */}
               {superAdminNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = superAdminTab === item.id;
@@ -570,7 +540,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                 );
               })}
 
-              {/* Tombol Kunci Sesi di Bagian Bawah Navigasi Super Admin */}
               <div className="pt-3 border-t border-gray-700/30 mt-2">
                 <button
                   type="button"
@@ -588,9 +557,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
               </div>
             </div>
           ) : (
-            /* ========================================================
-               REGULAR ERP NAVIGATION MENU LIST
-               ======================================================== */
             <div className="space-y-1">
               <div className="px-2.5 pb-1 text-[9px] xl:text-[10px] font-bold text-[#8b949e] uppercase tracking-wider select-none">
                 {isEn ? 'NAVIGATION MENU' : 'MENU NAVIGASI'}
@@ -600,8 +566,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                 const Icon = item.icon;
                 const isActive = activeNav === item.id;
                 const isHovered = hoveredNavId === item.id;
-
-                // Thick multi-layer neon glow with specific module color and instant reactive hover
                 const navStyle = getReactiveNeonGlowStyle(item.neonColor, isActive, isHovered, isLight);
 
                 return (
@@ -623,7 +587,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                     }`}
                   >
                     <div className="flex items-center gap-2.5 xl:gap-3 min-w-0">
-                      {/* Icon with Individual Glow */}
                       <div
                         className={`w-6 h-6 xl:w-6.5 xl:h-6.5 rounded-lg flex items-center justify-center transition shrink-0 ${
                           isActive
@@ -661,7 +624,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                         )}
                       </div>
 
-                      {/* Clean Menu Label Only */}
                       <span
                         className={`text-xs xl:text-sm tracking-wide truncate ${
                           isActive
@@ -678,7 +640,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
-                      {/* Indikator Gembok Kecil */}
                       {isModuleLockedForUser(item.id) && (
                         <span
                           className="p-1 rounded-md text-amber-400 bg-amber-500/15 border border-amber-500/30 shrink-0 flex items-center justify-center shadow-xs"
@@ -692,7 +653,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                         </span>
                       )}
 
-                      {/* Optional Badge */}
                       {item.id === 'executive' ? (
                         totalExecutivePending > 0 && Boolean(item.badge) ? (
                           <span
@@ -734,7 +694,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
           )}
         </div>
 
-        {/* 3. Footer Brand & Tentang Sistem Trigger */}
         <div
           className={`p-2.5 border-t shrink-0 ${
             isLight ? 'border-slate-200 bg-slate-50/70' : 'border-[#30363d] bg-[#12161c]'
@@ -769,7 +728,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
         </div>
       </aside>
 
-      {/* Modal Tentang Sistem & Pengembang */}
       <AboutSystemModal
         isOpen={isAboutModalOpen}
         onClose={() => setIsAboutModalOpen(false)}
@@ -777,7 +735,6 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
         language={language}
       />
 
-      {/* Modal Otorisasi Ringkas Akses Modul */}
       <QuickAuthModal
         isOpen={isAuthModalOpen}
         onClose={() => {
@@ -808,3 +765,4 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
     </>
   );
 };
+EOF
