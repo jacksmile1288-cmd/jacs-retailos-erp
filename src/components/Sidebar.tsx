@@ -443,7 +443,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
             title="Tutup Menu"
             aria-label="Tutup Menu"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 shrink-0 text-slate-600 dark:text-slate-300 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition-colors" />
           </button>
         </div>
 
