@@ -81,7 +81,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
   {
     id: 'executive',
-    order: '02',
+    order: '01',
     title: 'Eksekutif & Manajerial (Executive & Managerial)',
     subTitle: 'KPI, Margin & Antrean Persetujuan (KPI, Margin & Approval Queue)',
     colorHex: '#10B981',
@@ -122,7 +122,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
   {
     id: 'hr',
-    order: '03',
+    order: '02',
     title: 'SDM & Personalia (Human Resources)',
     subTitle: 'Staf, Presensi & Cuti (Staff, Attendance & Leave)',
     colorHex: '#00f2fe',
@@ -163,7 +163,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
   {
     id: 'finance',
-    order: '04',
+    order: '03',
     title: 'Keuangan & Akuntansi (Finance & Accounting)',
     subTitle: 'Kas, AP/AR & Arus Kas (Cash, AP/AR & Cash Flow)',
     colorHex: '#f59e0b',
@@ -204,7 +204,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
   {
     id: 'purchasing',
-    order: '05',
+    order: '04',
     title: 'Pengadaan Barang',
     subTitle: 'Pengajuan, Pesanan Pembelian & Penerimaan Barang',
     colorHex: '#f43f5e',
@@ -245,7 +245,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
   {
     id: 'warehouse',
-    order: '06',
+    order: '05',
     title: 'Gudang & Inventori (Warehouse & Inventory)',
     subTitle: 'SKU, Mutasi & Stok Opname (SKU, Stock Movement & Stock Opname)',
     colorHex: '#8b5cf6',
@@ -286,7 +286,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
   {
     id: 'pos',
-    order: '07',
+    order: '06',
     title: 'Kasir & Penjualan (POS)',
     subTitle: 'Transaksi Kasir & Cetak Struk Penjualan',
     colorHex: '#ff7a00',
