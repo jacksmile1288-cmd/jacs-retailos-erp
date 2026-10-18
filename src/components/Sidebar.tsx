@@ -19,30 +19,7 @@ import { getReactiveNeonGlowStyle } from '../utils/neonGlow';
 import { JacSLogo } from './common/JacSLogo';
 import { AboutSystemModal } from './common/AboutSystemModal';
 import { QuickAuthModal } from './auth/QuickAuthModal';
-import {
-  Home,
-  LayoutDashboard,
-  Database,
-  Briefcase,
-  CreditCard,
-  ShoppingBag,
-  Boxes,
-  Users,
-  Store,
-  ShieldAlert,
-  X,
-  Info,
-  Sparkles,
-  Lock,
-  ArrowLeft,
-  Activity,
-  Building2,
-  KeyRound,
-  Cpu,
-  ClipboardList,
-  DoorOpen,
-  BookOpen,
-} from 'lucide-react';
+import { Home, LayoutDashboard, Database, Briefcase, Users, Wallet, ShoppingCart, Package, CreditCard, ShieldAlert, Sparkles, Sun, Moon } from 'lucide-react';
 
 interface NavItem {
   id: ActiveNavModule;
@@ -470,7 +447,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                   }`}
                   title="Kembali ke Menu Utama / Dashboard Reguler"
                 >
-                  <ArrowLeft className="w-4 h-4 text-cyan-400 group-hover:-translate-x-0.5 transition-transform" />
+                  <ArrowLeft className="w-5 h-5 shrink-0 text-slate-300 dark:text-slate-200 group-hover:text-cyan-400 transition-colors" />
                   <span>← Kembali ke Menu Utama ERP</span>
                 </button>
               </div>
@@ -478,7 +455,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
               {/* Header Kategori Super Admin Internal */}
               <div className="px-2.5 pt-1 pb-1 flex items-center justify-between text-[9px] xl:text-[10px] font-bold text-pink-400 uppercase tracking-wider select-none font-mono">
                 <span className="flex items-center gap-1.5">
-                  <ShieldAlert className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                  <ShieldAlert className="w-5 h-5 shrink-0 text-slate-300 dark:text-slate-200 group-hover:text-cyan-400 transition-colors" />
                   <span>{isEn ? 'SUPER ADMIN CONSOLE' : 'KONSOL SUPER ADMIN'}</span>
                 </span>
                 <span className="px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[8px]">
@@ -596,7 +573,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition cursor-pointer active:scale-95"
                   title="Logout / Kunci Sesi Super Admin"
                 >
-                  <Lock className="w-3.5 h-3.5" />
+                  <Lock className="w-5 h-5 shrink-0 text-slate-300 dark:text-slate-200 group-hover:text-cyan-400 transition-colors" />
                   <span>Kunci Sesi Super Admin</span>
                 </button>
               </div>
@@ -702,7 +679,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                               : (isEn ? 'Locked - Division authorization required' : 'Terkunci - Wajib Otorisasi Divisi')
                           }
                         >
-                          <Lock className="w-3 h-3 text-amber-400" />
+                          <Lock className="w-5 h-5 shrink-0 text-slate-300 dark:text-slate-200 group-hover:text-cyan-400 transition-colors" />
                         </span>
                       )}
 
@@ -767,7 +744,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
           >
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-6 h-6 rounded-lg bg-blue-600/15 border border-blue-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition shrink-0">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <Sparkles className="w-5 h-5 shrink-0 text-slate-300 dark:text-slate-200 group-hover:text-cyan-400 transition-colors" />
               </div>
               <div className="flex flex-col text-left leading-tight min-w-0">
                 <span className="font-bold text-[11px] truncate">
@@ -778,7 +755,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                 </span>
               </div>
             </div>
-            <Info className="w-3.5 h-3.5 text-[#8b949e] group-hover:text-cyan-400 shrink-0" />
+            <Info className="w-5 h-5 shrink-0 text-slate-300 dark:text-slate-200 group-hover:text-cyan-400 transition-colors" />
           </button>
         </div>
       </aside>
