@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Info,
-  ShieldCheck,
   Sparkles,
   ArrowRight,
   Database,
@@ -359,7 +358,7 @@ export const HomeModule: React.FC = () => {
     <div id="home-module-container" className="w-full max-w-[1360px] mx-auto flex flex-col space-y-4 xl:space-y-5">
       {/* 1. DYNAMIC STORE BRANDING & OPERATIONAL HEADER */}
       <div
-        className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 transition duration-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+        className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 transition duration-200 flex items-start sm:items-center justify-between gap-4 ${
           isLight
             ? 'bg-white border-slate-200 shadow-sm'
             : 'bg-[#161b22] border-[#30363d]'
@@ -375,68 +374,60 @@ export const HomeModule: React.FC = () => {
             'Jl. Operasional Ritel No. 1, Makassar';
 
           return (
-            <>
-              <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-                {businessProfile?.logoUrl ? (
-                  <img
-                    src={businessProfile.logoUrl}
-                    alt={companyName}
-                    className="w-12 h-12 object-contain rounded-xl border border-slate-700/50 bg-slate-800/40 p-1 shrink-0 shadow-sm"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white font-black text-xl flex items-center justify-center shrink-0 shadow-md">
-                    {companyName.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mt-0.5 mb-2">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0052FF]/15 border border-[#0052FF]/40 text-[#58a6ff] text-[10px] xl:text-[11px] font-semibold">
-                      <Sparkles className="w-3.5 h-3.5 text-[#00f2fe]" />
-                      <span>
-                        {isEn
-                          ? '6 Core Operational Divisions'
-                          : '6 Divisi Operasional Terpadu'}
-                      </span>
-                    </div>
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
-                      isLight
-                        ? 'bg-slate-100 text-slate-600 border-slate-200'
-                        : 'bg-slate-800/80 text-gray-300 border-slate-700'
-                    }`}>
-                      {businessProfile?.category || 'Ritel Modern & Multi-Industry'}
+            <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+              {businessProfile?.logoUrl ? (
+                <img
+                  src={businessProfile.logoUrl}
+                  alt={companyName}
+                  className="w-12 h-12 object-contain rounded-xl border border-slate-700/50 bg-slate-800/40 p-1 shrink-0 shadow-sm"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white font-black text-xl flex items-center justify-center shrink-0 shadow-md">
+                  {companyName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mt-0.5 mb-2">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0052FF]/15 border border-[#0052FF]/40 text-[#58a6ff] text-[10px] xl:text-[11px] font-semibold">
+                    <Sparkles className="w-3.5 h-3.5 text-[#00f2fe]" />
+                    <span>
+                      {isEn
+                        ? '6 Core Operational Divisions'
+                        : '6 Divisi Operasional Terpadu'}
                     </span>
                   </div>
-                  <h1
-                    className={`text-xl sm:text-2xl font-black tracking-tight ${
-                      isLight ? 'text-slate-900' : 'text-white'
-                    }`}
-                    style={{ fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif" }}
-                  >
-                    {companyName}
-                  </h1>
-                  <p className={`text-xs font-normal mt-0.5 line-clamp-2 max-w-2xl ${
-                    isLight ? 'text-slate-600' : 'text-slate-300'
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
+                    isLight
+                      ? 'bg-slate-100 text-slate-600 border-slate-200'
+                      : 'bg-slate-800/80 text-gray-300 border-slate-700'
                   }`}>
-                    {companyAddress}
-                  </p>
+                    {businessProfile?.category || 'Ritel Modern & Multi-Industry'}
+                  </span>
                 </div>
+                <h1
+                  className={`text-xl sm:text-2xl font-black tracking-tight ${
+                    isLight ? 'text-slate-900' : 'text-white'
+                  }`}
+                  style={{ fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif" }}
+                >
+                  {companyName}
+                </h1>
+                <p className={`text-xs font-normal mt-0.5 line-clamp-2 max-w-2xl ${
+                  isLight ? 'text-slate-600' : 'text-slate-300'
+                }`}>
+                  {companyAddress}
+                </p>
               </div>
-
-              {/* Quick Action Buttons */}
-              <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 flex-wrap justify-start md:justify-end">
-                
-                
-              </div>
-            </>
+            </div>
           );
         })()}
       </div>
 
       {/* 2. KARTU BAR NEON INTERAKTIF BERBEDA WARNA DENGAN HOVER GLOW REACTIVE */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5 xl:gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 xl:gap-4">
         {ROLE_MODULES.map((role) => {
           const Icon = role.icon;
           const isSelected = activeRole.id === role.id;
