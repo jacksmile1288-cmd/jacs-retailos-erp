@@ -522,17 +522,21 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                             : {}
                         }
                       >
-                        <Icon
-                          className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${
-                            isActive
-                              ? isLight
-                                ? 'text-white'
-                                : 'text-pink-300 drop-shadow-[0_0_6px_rgba(236,72,153,0.8)]'
-                              : isLight
-                              ? 'text-slate-600 group-hover:text-slate-900'
-                              : 'text-slate-300'
-                          }`}
-                        />
+                        {typeof Icon === 'function' ? (
+                          <Icon
+                            className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${
+                              isActive
+                                ? isLight
+                                  ? 'text-white'
+                                  : 'text-pink-300 drop-shadow-[0_0_6px_rgba(236,72,153,0.8)]'
+                                : isLight
+                                ? 'text-slate-600 group-hover:text-slate-900'
+                                : 'text-slate-300'
+                            }`}
+                          />
+                        ) : (
+                          <span className="w-3.5 h-3.5 inline-block" />
+                        )}
                       </div>
                       <span
                         className={`text-xs xl:text-sm tracking-wide truncate ${
@@ -640,17 +644,21 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                             : {}
                         }
                       >
-                        <Icon
-                          className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${
-                            isActive
-                              ? isLight
-                                ? 'text-white'
-                                : 'text-cyan-300 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
-                              : isLight
-                              ? 'text-slate-600 group-hover:text-slate-900'
-                              : 'text-slate-300'
-                          }`}
-                        />
+                        {typeof Icon === 'function' ? (
+                          <Icon
+                            className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${
+                              isActive
+                                ? isLight
+                                  ? 'text-white'
+                                  : 'text-cyan-300 drop-shadow-[0_0_6px_rgba(6,182,212,0.8)]'
+                                : isLight
+                                ? 'text-slate-600 group-hover:text-slate-900'
+                                : 'text-slate-300'
+                            }`}
+                          />
+                        ) : (
+                          <span className="w-3.5 h-3.5 inline-block" />
+                        )}
                       </div>
 
                       {/* Clean Menu Label Only */}
