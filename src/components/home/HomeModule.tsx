@@ -427,15 +427,7 @@ export const HomeModule: React.FC = () => {
 
               {/* Quick Action Buttons */}
               <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 flex-wrap justify-start md:justify-end">
-                <button
-                  type="button"
-                  id="btn-quick-open-pos"
-                  onClick={() => setActiveNav('pos')}
-                  className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1.5 transition shadow-sm cursor-pointer"
-                >
-                  <Store className="w-4 h-4" />
-                  <span>{isEn ? 'Open Cashier Terminal' : 'Buka Terminal Kasir'}</span>
-                </button>
+                
                 <button
                   type="button"
                   id="btn-quick-open-superadmin-sop"
