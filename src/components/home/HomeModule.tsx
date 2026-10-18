@@ -512,7 +512,7 @@ export const HomeModule: React.FC = () => {
                 {/* Clean Role Title & Sub-judul */}
                 <div className="space-y-1">
                   <h3
-                    className="text-base xl:text-lg font-semibold leading-snug transition-colors line-clamp-1"
+                    className="text-sm xl:text-base font-bold leading-snug transition-colors"
                     style={{
                       color: isSelected ? role.colorHex : isLight ? '#0F172A' : '#e6edf3',
                     }}
