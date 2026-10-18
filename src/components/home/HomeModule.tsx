@@ -436,7 +436,7 @@ export const HomeModule: React.FC = () => {
       </div>
 
       {/* 2. KARTU BAR NEON INTERAKTIF BERBEDA WARNA DENGAN HOVER GLOW REACTIVE */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 xl:gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5 xl:gap-4">
         {ROLE_MODULES.map((role) => {
           const Icon = role.icon;
           const isSelected = activeRole.id === role.id;
