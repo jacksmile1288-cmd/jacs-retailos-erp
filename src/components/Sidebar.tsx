@@ -32,7 +32,7 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="w-72 bg-slate-900 border-r border-slate-800 text-slate-200 flex flex-col h-screen select-none shrink-0">
+    <aside className="w-64 bg-slate-900 border-r border-slate-800 text-slate-200 flex flex-col h-screen select-none shrink-0">
       {/* Brand Header */}
       <div className="p-4 border-b border-slate-800 flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center font-black text-white shadow-lg shadow-cyan-500/20 text-lg tracking-wider">
@@ -61,19 +61,19 @@ export const Sidebar: React.FC = () => {
             <button
               key={item.id}
               onClick={() => setActiveNav(item.id)}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all group ${
+              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all group ${
                 isActive
                   ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/10 text-cyan-400 border border-cyan-500/30 shadow-sm'
                   : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
                   isActive
                     ? 'bg-cyan-500/20 text-cyan-400'
                     : 'bg-slate-800 text-slate-400 group-hover:text-cyan-300 group-hover:bg-slate-700/60'
                 }`}>
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3.5 h-3.5" />
                 </div>
                 <div className="truncate text-left">
                   <div>{item.label}</div>
