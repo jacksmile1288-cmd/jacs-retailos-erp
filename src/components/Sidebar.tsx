@@ -1,3 +1,17 @@
+
+const NAV_LABELS: Record<string, { id: string; en: string }> = {
+  home: { id: 'BERANDA', en: 'HOME' },
+  dashboard: { id: 'DASHBOARD', en: 'DASHBOARD' },
+  master: { id: 'MASTER DATA UTAMA', en: 'MASTER DATA CANONICAL' },
+  executive: { id: 'EKSEKUTIF & MANAJERIAL', en: 'EXECUTIVE & MANAGERIAL' },
+  hr: { id: 'SDM & PERSONALIA', en: 'HUMAN RESOURCES' },
+  finance: { id: 'KEUANGAN & AKUNTANSI', en: 'FINANCE & ACCOUNTING' },
+  purchasing: { id: 'PENGADAAN BARANG', en: 'PURCHASING & PROCUREMENT' },
+  warehouse: { id: 'GUDANG & INVENTORI', en: 'WAREHOUSE & INVENTORY' },
+  pos: { id: 'KASIR & PENJUALAN', en: 'POS & CASHIER' },
+  admin: { id: 'SUPER ADMIN & SOP', en: 'SUPER ADMIN' },
+};
+
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { ActiveNavModule } from '../types';
