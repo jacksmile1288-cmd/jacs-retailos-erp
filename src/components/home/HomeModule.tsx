@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Sparkles,
   ArrowRight,
+  Database,
   BookOpen,
   Lock,
 } from 'lucide-react';
@@ -33,503 +34,891 @@ interface RoleModuleData {
   summary: string;
   objectives: string[];
   sopSteps: { step: number; title: string; desc: string }[];
-  targetNav: ActiveNavModule;
-  sopCategory: string;
+  dataIntegration: { target: string; desc: string }[];
 }
 
-export const HomeModule: React.FC = () => {
-  const { setActiveNav, businessProfile, currentLanguage, userRole } = useApp();
-  const isEn = currentLanguage === 'en';
-  const t = DIVISIONS_TRANSLATIONS[currentLanguage] || DIVISIONS_TRANSLATIONS.id;
+const ROLE_MODULES: RoleModuleData[] = [
+  {
+    id: 'executive',
+    order: '01',
+    title: 'Eksekutif & Manajerial (Executive & Managerial)',
+    subTitle: 'KPI, Margin & Antrean Persetujuan (KPI, Margin & Approval Queue)',
+    colorHex: '#10B981',
+    icon: Briefcase,
+    summary:
+      'Pusat kendali manajerial untuk pemantauan metrik pendapatan, analisis profitabilitas produk, KPI & performa kerja karyawan, serta antrean persetujuan (Approval Queue) pengadaan bernilai besar.',
+    objectives: [
+      'Memantau Gross Profit Margin perusahaan secara realtime berdasarkan perbandingan harga jual dan HPP modal.',
+      'Meninjau performa dan kontribusi pendapatan masing-masing kasir dan terminal kerja.',
+      'Mengotorisasi permohonan pengadaan barang (PR) dan pembukaan akses pengguna baru.',
+    ],
+    sopSteps: [
+      {
+        step: 1,
+        title: 'Monitoring Dashboard Strategis',
+        desc: 'Menganalisis tren penjualan harian, pergerakan produk terlaris (Top Sellers), dan komposisi margin kotor setiap kategori.',
+      },
+      {
+        step: 2,
+        title: 'Tinjauan Antrean Approval (Queue)',
+        desc: 'Memeriksa formulir Purchase Request (PR) yang diajukan departemen Purchasing. Melakukan persetujuan (Approve) atau penolakan dengan catatan resmi.',
+      },
+      {
+        step: 3,
+        title: 'Evaluasi KPI & Efisiensi Shift',
+        desc: 'Memantau kecepatan transaksi kasir, rata-rata nilai belanja (Basket Size), dan akurasi rekonsiliasi kas tiap staf.',
+      },
+      {
+        step: 4,
+        title: 'Audit Keamanan & Hak Akses',
+        desc: 'Mengontrol penerbitan kredensial dan hak wewenang akses akun pengguna di lingkungan JacS ERP.',
+      },
+    ],
+    dataIntegration: [
+      { target: 'DB_Sales', desc: 'Agregasi omzet kotor, laba bersih, dan metrik performa kasir harian.' },
+      { target: 'DB_Purchasing', desc: 'Otorisasi dokumen pengadaan barang dan kontrol batas anggaran belanja.' },
+    ],
+  },
+  {
+    id: 'hr',
+    order: '02',
+    title: 'SDM & Personalia (Human Resources)',
+    subTitle: 'Staf, Presensi & Cuti (Staff, Attendance & Leave)',
+    colorHex: '#00f2fe',
+    icon: Users,
+    summary:
+      'Pusat manajemen sumber daya manusia (SDM), direktori personil lengkap lintas departemen ERP, log presensi shift kerja realtime, serta sistem pengajuan dan otorisasi tiket cuti, izin & sakit.',
+    objectives: [
+      'Mengelola direktori identitas personil (NIP, foto/avatar, jabatan, kontak, status kontrak).',
+      'Mencatat dan memonitor aktivitas presensi shift harian (Clock In / Out) serta ketepatan waktu.',
+      'Memproses pengajuan tiket cuti tahunan, izin sakit, dan pelacak kuota sisa cuti secara otomatis.',
+    ],
+    sopSteps: [
+      {
+        step: 1,
+        title: 'Registrasi & Penugasan Shift Karyawan',
+        desc: 'Mendaftarkan staf baru dengan NIP resmi, menetapkan departemen, shift kerja, dan jatah kuota cuti tahunan.',
+      },
+      {
+        step: 2,
+        title: 'Pencatatan Presensi Shift Operasional',
+        desc: 'Karyawan melakukan Clock In pada awal shift dan Clock Out saat jam operasional selesai via terminal JacS.',
+      },
+      {
+        step: 3,
+        title: 'Pengajuan & Validasi Tiket Cuti/Izin',
+        desc: 'Staf mengajukan permohonan izin/cuti dan atasan/HR menyetujui secara digital dengan pemotongan kuota instan.',
+      },
+      {
+        step: 4,
+        title: 'Rekapitulasi Kehadiran & Audit Kedisiplinan',
+        desc: 'Mengevaluasi laporan presensi periodik sebagai dasar evaluasi kinerja dan kepatuhan jam kerja operasional.',
+      },
+    ],
+    dataIntegration: [
+      { target: 'DB_Employees', desc: 'Arsip identitas staf, jabatan divisi, status kontrak, dan saldo kuota cuti.' },
+      { target: 'DB_Attendance', desc: 'Log presensi realtime, status tepat waktu / terlambat, dan stempel jam kerja.' },
+    ],
+  },
+  {
+    id: 'finance',
+    order: '03',
+    title: 'Keuangan & Akuntansi (Finance & Accounting)',
+    subTitle: 'Kas, AP/AR & Arus Kas (Cash, AP/AR & Cash Flow)',
+    colorHex: '#f59e0b',
+    icon: CreditCard,
+    summary:
+      'Pengelolaan likuiditas keuangan komprehensif mencakup rekonsiliasi Kas & Bank, penagihan Piutang Usaha (AR), penjadwalan Hutang Vendor (AP), General Ledger otomatis, dan proyeksi arus kas operasional.',
+    objectives: [
+      'Memastikan rekonsiliasi penerimaan kas dari seluruh terminal POS cocok dengan rekening koran bank.',
+      'Mengelola jatuh tempo invoice supplier agar terbayar tepat waktu tanpa mengganggu likuiditas kas.',
+      'Menjaga kepatuhan pajak (PPN 11%) dan akurasi pencatatan jurnal debit/kredit General Ledger.',
+    ],
+    sopSteps: [
+      {
+        step: 1,
+        title: 'Rekonsiliasi Kas Harian (Cash & Bank)',
+        desc: 'Mencocokkan penerimaan tunai, QRIS dinamis, EDC debit/kredit, dan transfer bank dari transaksi kasir dengan mutasi bank riil.',
+      },
+      {
+        step: 2,
+        title: 'Manajemen Piutang Usaha (AR)',
+        desc: 'Memantau umur piutang (Aging AR) dari pelanggan grosir/B2B dan menerbitkan reminder penagihan sebelum jatuh tempo.',
+      },
+      {
+        step: 3,
+        title: 'Jadwal Pelunasan Hutang Vendor (AP)',
+        desc: 'Memvalidasi tagihan Purchase Order supplier yang telah berstatus diterima dan memproses pelunasan berdasarkan skala prioritas.',
+      },
+      {
+        step: 4,
+        title: 'Penutupan Jurnal & Cash Flow Analysis',
+        desc: 'Memeriksa keseimbangan saldo debit/kredit pada buku besar (General Ledger) serta mengevaluasi arus kas 30 hari.',
+      },
+    ],
+    dataIntegration: [
+      { target: 'DB_Sales', desc: 'Sumber data penerimaan penjualan realtime dan perhitungan PPN 11%.' },
+      { target: 'DB_Purchasing', desc: 'Pencatatan kewajiban hutang dagang (Accounts Payable) invoice supplier.' },
+    ],
+  },
+  {
+    id: 'purchasing',
+    order: '04',
+    title: 'Pengadaan Barang',
+    subTitle: 'Pengajuan, Pesanan Pembelian & Penerimaan Barang',
+    colorHex: '#f43f5e',
+    icon: ShoppingBag,
+    summary:
+      'Tata kelola pengadaan barang dagangan, manajemen relasi vendor terdaftar, penerbitan Purchase Order resmi, evaluasi ketepatan suplai, dan pencatatan penerimaan fisik barang.',
+    objectives: [
+      'Mencegah kekosongan persediaan (Out of Stock) dengan pengadaan tepat waktu berbasis data stok kritis.',
+      'Mendapatkan harga pokok pembelian (Cost Price) terbaik melalui evaluasi berkala terhadap kinerja supplier.',
+      'Mencatat dokumen Purchase Order yang terhubung langsung ke pencatatan stok dan hutang usaha.',
+    ],
+    sopSteps: [
+      {
+        step: 1,
+        title: 'Pembuatan Purchase Request (PR)',
+        desc: 'Menginput permohonan pengadaan barang restock berdasarkan rekomendasi stok minimum dari divisi gudang.',
+      },
+      {
+        step: 2,
+        title: 'Eskalasi Persetujuan Pimpinan',
+        desc: 'Mengajukan dokumen PR ke antrean approval manajer untuk verifikasi kelayakan anggaran.',
+      },
+      {
+        step: 3,
+        title: 'Penerbitan Purchase Order (PO)',
+        desc: 'Mengirimkan PO resmi kepada supplier terpilih dengan rincian kuantitas, harga neto, dan estimasi waktu kirim.',
+      },
+      {
+        step: 4,
+        title: 'Konfirmasi Penerimaan Barang (Receive)',
+        desc: 'Memverifikasi kesesuaian fisik kiriman supplier dengan PO, lalu menekan tombol terima barang untuk memperbarui stok sistem.',
+      },
+    ],
+    dataIntegration: [
+      { target: 'DB_Purchasing', desc: 'Arsip nomor PO, tanggal terbit, nama supplier, item pesanan, dan total nilai.' },
+      { target: 'DB_Products', desc: 'Pembaruan otomatis jumlah stok fisik barang saat pesanan tiba.' },
+    ],
+  },
+  {
+    id: 'warehouse',
+    order: '05',
+    title: 'Gudang & Inventori (Warehouse & Inventory)',
+    subTitle: 'SKU, Mutasi & Stok Opname (SKU, Stock Movement & Stock Opname)',
+    colorHex: '#8b5cf6',
+    icon: Boxes,
+    summary:
+      'Manajemen fisik barang di gudang, penataan rak dan zonasi SKU, pemantauan status stok (Good, Warning, Critical), pencatatan mutasi antar-lokasi, stock opname fisik, serta proses picking & packing.',
+    objectives: [
+      'Menjamin akurasi 100% antara jumlah fisik barang di rak penyimpanan dengan angka stok pada sistem database.',
+      'Mendeteksi dan memperingatkan stok yang mendekati batas minimum (Warning Restock < 10 unit).',
+      'Mengatur alur barang masuk (Inbound) dan barang keluar (Outbound) secara rapi dan terdokumentasi.',
+    ],
+    sopSteps: [
+      {
+        step: 1,
+        title: 'Pemeriksaan Barang Masuk (Inbound)',
+        desc: 'Mencocokkan kondisi fisik kemasan dan label barcode kiriman dari supplier dengan surat jalan dan lembar PO.',
+      },
+      {
+        step: 2,
+        title: 'Penempatan & Mutasi Rak',
+        desc: 'Menata barang pada rak gudang atau memindahkan ke display rak kasir dengan mencatat perpindahan di log mutasi.',
+      },
+      {
+        step: 3,
+        title: 'Pelaksanaan Stock Opname Berkala',
+        desc: 'Menghitung fisik barang mingguan/bulanan. Bila terdapat selisih, buat laporan penyesuaian (Stock Adjustment).',
+      },
+      {
+        step: 4,
+        title: 'Picking & Packing Pesanan',
+        desc: 'Mengambil barang pesanan sesuai daftar register dan memverifikasi barcode sebelum diserahterimakan.',
+      },
+    ],
+    dataIntegration: [
+      { target: 'DB_Products', desc: 'Master katalog barang, saldo stok terkini, dan status peringatan restock.' },
+      { target: 'DB_Inventory', desc: 'Pencatatan riwayat kartu stok (Stock In, Stock Out, dan Saldo Akhir).' },
+    ],
+  },
+  {
+    id: 'pos',
+    order: '06',
+    title: 'Kasir & Penjualan (POS)',
+    subTitle: 'Transaksi Kasir & Cetak Struk Penjualan',
+    colorHex: '#ff7a00',
+    icon: Store,
+    summary:
+      'Garda depan transaksi ritel berkecepatan tinggi dengan 6 Bar Neon Terminal independen, pemindaian barcode hardware USB/Bluetooth, diskon & PPN 11%, multi-metode pembayaran, dan cetak struk thermal 80mm.',
+    objectives: [
+      'Menyajikan proses transaksi checkout yang cepat, responsif, dan akurat kepada pelanggan.',
+      'Mendukung operasional multi-kasir secara simultan melalui 6 terminal neon berstatus realtime.',
+      'Secara otomatis memotong saldo stok produk dan mencatat riwayat transaksi ke database DB_Sales.',
+    ],
+    sopSteps: [
+      {
+        step: 1,
+        title: 'Login PIN & Pemilihan Terminal',
+        desc: 'Kasir memasukkan 4-digit PIN operator pribadi dan mengaktifkan salah satu dari 6 Bar Neon terminal kerja.',
+      },
+      {
+        step: 2,
+        title: 'Input Barang via Barcode Scanner',
+        desc: 'Arahkan scanner ke label produk. Sistem otomatis mendeteksi buffer ketikan scanner dan menambah item ke keranjang dengan nada beep.',
+      },
+      {
+        step: 3,
+        title: 'Penerapan Diskon & Pajak (PPN 11%)',
+        desc: 'Terapkan diskon nominal atau persentase bila ada promo, dan aktifkan toggle PPN 11% sesuai ketentuan transaksi.',
+      },
+      {
+        step: 4,
+        title: 'Pembayaran & Cetak Struk',
+        desc: 'Pilih metode pembayaran (Tunai, QRIS, EDC, Transfer). Klik Proses Transaksi untuk mencetak struk thermal 80mm.',
+      },
+    ],
+    dataIntegration: [
+      { target: 'DB_Sales', desc: 'Pencatatan nomor nota, kasir penginput, terminal, rincian barang, dan total nominal.' },
+      { target: 'DB_Products', desc: 'Pemotongan stok barang langsung secara instan saat transaksi selesai.' },
+    ],
+  },
+];
 
-  const [activeSopModal, setActiveSopModal] = useState<RoleModuleData | null>(null);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+// Array 6 kartu divisi operasional Beranda (modulesList)
+export const modulesList = ROLE_MODULES;
+
+export const HomeModule: React.FC = () => {
+  const {
+    theme,
+    language,
+    activeNeonCards,
+    setActiveNeonCard,
+    setActiveNav,
+    businessProfile,
+    activeUser,
+    isSuperAdminAuthenticated,
+    setIsSuperAdminAuthenticated,
+    isModuleUnlocked,
+    unlockModule,
+    setSuperAdminTab,
+    showToast,
+  } = useApp();
+  const [hoveredRoleId, setHoveredRoleId] = useState<string | null>(null);
+
+  const isLight = theme === 'light';
+  const isEn = language === 'en';
+
+  // Active role selected for interactive neon glow & detail modal dialog (persisted across modules)
+  const activeRoleId = activeNeonCards['home'] || 'executive';
+  const activeRole = ROLE_MODULES.find((r) => r.id === activeRoleId) || ROLE_MODULES[0];
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // QuickAuthModal state untuk proteksi pembukaan modul divisi
   const [pendingNav, setPendingNav] = useState<ActiveNavModule | null>(null);
   const [pendingNavTitle, setPendingNavTitle] = useState<string>('');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  const modulesList: RoleModuleData[] = [
-    {
-      id: 'executive',
-      order: '01',
-      title: isEn ? 'Executive & Management' : 'Eksekutif & Manajerial',
-      subTitle: isEn ? 'KPIs, Gross Margin, Risk & Approval Queue' : 'KPI, Margin & Antrean Persetujuan',
-      colorHex: '#8B5CF6',
-      icon: Briefcase,
-      summary: isEn
-        ? 'Central command cockpit for real-time gross margin analytics, operational burn rates, and multi-tier approval authorizations.'
-        : 'Pusat kendali eksekutif untuk analitik margin kotor, laju kas operasional, dan otoritas persetujuan bertingkat.',
-      objectives: [
-        isEn ? 'Audit live store EBITDA and gross profit margins' : 'Audit margin laba kotor dan performa EBITDA swalayan secara real-time',
-        isEn ? 'Authorize urgent capital expenditure and restock requisitions' : 'Otorisasi pengajuan pembelian darurat dan restock barang modal',
-        isEn ? 'Monitor cash conversion cycle & inventory turnover' : 'Pantau siklus konversi kas dan perputaran persediaan barang',
-      ],
-      sopSteps: [
-        {
-          step: 1,
-          title: isEn ? 'Daily Telemetry Review' : 'Tinjauan Telemetri Harian',
-          desc: isEn
-            ? 'Inspect consolidated sales vs COGS variance before noon'
-            : 'Periksa variansi penjualan konsolidasian terhadap HPP sebelum siang hari',
-        },
-        {
-          step: 2,
-          title: isEn ? 'Queue Processing' : 'Proses Antrean Persetujuan',
-          desc: isEn
-            ? 'Authorize or reject pending PRs over limit threshold'
-            : 'Setujui atau tolak pengajuan pembelian (PR) yang melampaui batas toleransi',
-        },
-        {
-          step: 3,
-          title: isEn ? 'Cash Policy Audit' : 'Audit Kebijakan Kas',
-          desc: isEn
-            ? 'Verify cash-to-bank reconciliation alongside Finance Lead'
-            : 'Verifikasi rekonsiliasi kas-ke-bank bersama Penanggung Jawab Keuangan',
-        },
-      ],
-      targetNav: 'executive',
-      sopCategory: 'EXECUTIVE',
-    },
-    {
-      id: 'hr',
-      order: '02',
-      title: isEn ? 'HR & Personnel' : 'SDM & Personalia',
-      subTitle: isEn ? 'Attendance, Payroll, Overtime & Leave Records' : 'Staf, Presensi & Cuti',
-      colorHex: '#EC4899',
-      icon: Users,
-      summary: isEn
-        ? 'Store personnel management, shift scheduling, verified attendance logs, and automatic payroll calculation.'
-        : 'Pengelolaan staf swalayan, penjadwalan shift kerja, presensi terverifikasi, dan perhitungan gaji berkala.',
-      objectives: [
-        isEn ? 'Track cashier & floor staff biometric shift check-ins' : 'Rekam presensi shift tim kasir dan staf gudang/lantai toko',
-        isEn ? 'Maintain compliant store staffing ratios across trading hours' : 'Jaga rasio jumlah staf aktif sesuai jam sibuk operasional toko',
-        isEn ? 'Automate overtime calculations and net payroll disbursements' : 'Otomatisasi kalkulasi lembur dan pencairan gaji bersih staf',
-      ],
-      sopSteps: [
-        {
-          step: 1,
-          title: isEn ? 'Shift Roster Audit' : 'Audit Jadwal Shift',
-          desc: isEn
-            ? 'Publish weekly shift schedules with balanced register coverage'
-            : 'Terbitkan jadwal kerja mingguan dengan penempatan kasir yang seimbang',
-        },
-        {
-          step: 2,
-          title: isEn ? 'Timecard Validation' : 'Validasi Kartu Jam Kerja',
-          desc: isEn
-            ? 'Review biometric anomalies, late marks, and approved leaves'
-            : 'Tinjau selisih presensi, keterlambatan, dan pengajuan cuti resmi',
-        },
-        {
-          step: 3,
-          title: isEn ? 'Payroll Run Verification' : 'Verifikasi Payroll Bulanan',
-          desc: isEn
-            ? 'Audit net payroll summaries before dispatching to Accounts Payable'
-            : 'Audit rekapitulasi gaji bersih sebelum diteruskan ke Buku Hutang Usaha',
-        },
-      ],
-      targetNav: 'hr',
-      sopCategory: 'HR_PAYROLL',
-    },
-    {
-      id: 'finance',
-      order: '03',
-      title: isEn ? 'Finance & Accounting' : 'Keuangan & Akuntansi',
-      subTitle: isEn ? 'Cash Flow, AP/AR, Tax Ledger & General Journal' : 'Kas, AP/AR & Arus Kas',
-      colorHex: '#10B981',
-      icon: CreditCard,
-      summary: isEn
-        ? 'Real-time general ledger, supplier accounts payable aging, register cash reconciliation, and compliant financial statements.'
-        : 'Buku besar akuntansi, analisis umur hutang pemasok, rekonsiliasi kas register, dan laporan keuangan komprehensif.',
-      objectives: [
-        isEn ? 'Reconcile daily point-of-sale cash drops with bank deposits' : 'Rekonsiliasi setoran kas harian kasir dengan mutasi rekening bank',
-        isEn ? 'Manage supplier credit terms to protect store working capital' : 'Kelola jatuh tempo hutang supplier untuk mengamankan likuiditas toko',
-        isEn ? 'Generate real-time P&L, Balance Sheet, and Trial Balance reports' : 'Sajikan laporan Laba Rugi, Neraca, dan Arus Kas secara otomatis',
-      ],
-      sopSteps: [
-        {
-          step: 1,
-          title: isEn ? 'Register Cash Balancing' : 'Balancing Kas Register',
-          desc: isEn
-            ? 'Match POS terminal settlement slips against vault receipts'
-            : 'Cocokkan bukti settlement POS dengan fisik kas di brankas toko',
-        },
-        {
-          step: 2,
-          title: isEn ? 'AP Due Review' : 'Tinjauan Hutang Jatuh Tempo',
-          desc: isEn
-            ? 'Prioritize supplier invoices reaching discount eligibility limits'
-            : 'Prioritaskan pelunasan faktur supplier yang memiliki termin diskon',
-        },
-        {
-          step: 3,
-          title: isEn ? 'Trial Balance Audit' : 'Audit Neraca Saldo',
-          desc: isEn
-            ? 'Ensure all inventory valuation movements balance with general ledger'
-            : 'Pastikan seluruh mutasi persediaan tercatat seimbang di buku besar',
-        },
-      ],
-      targetNav: 'finance',
-      sopCategory: 'FINANCE_ACCOUNTING',
-    },
-    {
-      id: 'purchasing',
-      order: '04',
-      title: isEn ? 'Procurement & Purchasing' : 'Pengadaan Barang',
-      subTitle: isEn ? 'Purchase Requests, Official POs & Vendor Terms' : 'Pengajuan, Pesanan Pembelian & Penerimaan Barang',
-      colorHex: '#F59E0B',
-      icon: ShoppingBag,
-      summary: isEn
-        ? 'Supplier contract management, purchase order generation, lead-time tracking, and automated restock workflows.'
-        : 'Manajemen kontrak pemasok, penerbitan PO resmi, pemantauan waktu kirim, dan pengadaan barang restock.',
-      objectives: [
-        isEn ? 'Procure merchandise at optimal wholesale margins and discounts' : 'Dapatkan harga beli grosir terbaik dan termin pembayaran yang fleksibel',
-        isEn ? 'Prevent stockouts by triggering auto-purchase recommendations' : 'Cegah kekosongan rak dengan rekomendasi restock berbasis kuota minimum',
-        isEn ? 'Maintain vendor delivery punctuality and quality compliance' : 'Evaluasi ketepatan jadwal kirim serta kualitas barang dari mitra pemasok',
-      ],
-      sopSteps: [
-        {
-          step: 1,
-          title: isEn ? 'Need Analysis' : 'Analisa Kebutuhan Restock',
-          desc: isEn
-            ? 'Review warehouse low-stock alerts and safety buffer thresholds'
-            : 'Tinjau peringatan stok menipis dan batas aman persediaan barang',
-        },
-        {
-          step: 2,
-          title: isEn ? 'PO Issuance & Dispatch' : 'Penerbitan Dokumen PO',
-          desc: isEn
-            ? 'Generate official Purchase Order and forward to approved vendor'
-            : 'Buat PO resmi setelah disetujui dan kirimkan ke pemasok terdaftar',
-        },
-        {
-          step: 3,
-          title: isEn ? 'Delivery Monitoring' : 'Monitoring Pengiriman',
-          desc: isEn
-            ? 'Track vendor fulfillment status and coordinate receiving dock'
-            : 'Pantau status pengiriman vendor dan koordinasikan penerimaan gudang',
-        },
-      ],
-      targetNav: 'purchasing',
-      sopCategory: 'PURCHASING_PROCUREMENT',
-    },
-    {
-      id: 'warehouse',
-      order: '05',
-      title: isEn ? 'Warehouse & Inventory' : 'Gudang & Inventori',
-      subTitle: isEn ? 'Receiving, Multi-Location Stock & Stock Opname' : 'SKU, Mutasi & Stok Opname',
-      colorHex: '#06B6D4',
-      icon: Boxes,
-      summary: isEn
-        ? 'Goods receipt inspection, stock opname reconciliation, shelf replenishment, and loss prevention control.'
-        : 'Pemeriksaan penerimaan barang, stok opname berkala, pengisian rak pajang, dan pencegahan selisih barang.',
-      objectives: [
-        isEn ? 'Execute accurate physical receiving against PO delivery orders' : 'Periksa fisik barang masuk sesuai Surat Jalan dan PO yang disetujui',
-        isEn ? 'Conduct periodic rolling stock opname to maintain 99%+ accuracy' : 'Lakukan stok opname berkala demi menjaga akurasi stok fisik di atas 99%',
-        isEn ? 'Manage product shelf placement and expiry date rotations (FEFO)' : 'Atur penataan rak dan rotasi masa kadaluwarsa (FEFO / First Expired First Out)',
-      ],
-      sopSteps: [
-        {
-          step: 1,
-          title: isEn ? 'Inbound Inspection' : 'Pemeriksaan Barang Masuk',
-          desc: isEn
-            ? 'Verify batch codes, expiry dates, and seal integrity upon arrival'
-            : 'Periksa kesesuaian fisik, tanggal kadaluwarsa, dan kondisi kemasan',
-        },
-        {
-          step: 2,
-          title: isEn ? 'Stock Opname Execution' : 'Pelaksanaan Stok Opname',
-          desc: isEn
-            ? 'Scan physical shelf inventory and log adjustment variance notes'
-            : 'Pindai barcode barang di rak dan rekam selisih fisik ke sistem',
-        },
-        {
-          step: 3,
-          title: isEn ? 'Shelf Restock Transfer' : 'Transfer Pajangan Rak',
-          desc: isEn
-            ? 'Transfer verified backroom goods to active front retail shelves'
-            : 'Pindahkan stok dari gudang penyimpanan ke rak etalase swalayan',
-        },
-      ],
-      targetNav: 'warehouse',
-      sopCategory: 'WAREHOUSE_INVENTORY',
-    },
-    {
-      id: 'pos',
-      order: '06',
-      title: isEn ? 'Point of Sale (POS)' : 'Kasir & Penjualan (POS)',
-      subTitle: isEn ? 'Fast Cashier, Barcode Scanning & Receipt Printing' : 'Transaksi Kasir & Cetak Struk Penjualan',
-      colorHex: '#EF4444',
-      icon: Store,
-      summary: isEn
-        ? 'High-throughput retail checkout, barcode scanner integration, split payments (Cash, QRIS, Debit), and digital receipting.'
-        : 'Terminal transaksi kasir cepat, pemindaian barcode, multi-pembayaran (Tunai, QRIS, Transfer), dan pencetakan struk belanja.',
-      objectives: [
-        isEn ? 'Maintain sub-minute customer checkout speed at cashier counters' : 'Pertahankan kecepatan transaksi kasir di bawah satu menit per pelanggan',
-        isEn ? 'Accept hybrid tenders: Cash, QRIS, Card, and Store Loyalty points' : 'Dukung berbagai metode bayar: Tunai, QRIS, Kartu Debit, dan Poin Member',
-        isEn ? 'Print clear fiscal transaction receipts and update live inventory' : 'Cetak struk belanja resmi dan potong persediaan stok secara langsung',
-      ],
-      sopSteps: [
-        {
-          step: 1,
-          title: isEn ? 'Shift Opening' : 'Buka Shift & Modal Kasir',
-          desc: isEn
-            ? 'Input starting cash drawer float and test receipt printer feed'
-            : 'Masukkan modal uang kembalian dan uji fungsi printer struk kasir',
-        },
-        {
-          step: 2,
-          title: isEn ? 'Checkout Transaction' : 'Transaksi Penjualan',
-          desc: isEn
-            ? 'Scan items, apply wholesale discount rules, and confirm payment'
-            : 'Pindai barcode barang, terapkan harga grosir/member, dan proses bayar',
-        },
-        {
-          step: 3,
-          title: isEn ? 'Shift Closing & X-Report' : 'Tutup Shift & Rekap Kas',
-          desc: isEn
-            ? 'Generate daily register summary and submit sealed cash pouch'
-            : 'Cetak rekap kas harian dan serahkan setoran tunai ke bagian keuangan',
-        },
-      ],
-      targetNav: 'pos',
-      sopCategory: 'POS_CASHIER',
-    },
-  ];
+  const isSuperAdmin = Boolean(
+    isSuperAdminAuthenticated || activeUser?.role === 'Super Admin'
+  );
 
-  const handleCardClick = (targetNav: ActiveNavModule, title: string) => {
-    if (targetNav === 'pos') {
-      setActiveNav('pos');
+  const isModuleLockedForUser = (modId: string) => {
+    if (modId === 'home' || modId === 'dashboard' || modId === 'pos') return false;
+    return !isModuleUnlocked(modId);
+  };
+
+  const handleOpenModule = (targetId: string, targetName: string) => {
+    // 1. Modul Bebas: HOME, DASHBOARD, POS (Terbuka untuk umum/kasir tanpa sandi)
+    if (targetId === 'home' || targetId === 'dashboard' || targetId === 'pos') {
+      setActiveNav(targetId as ActiveNavModule);
       return;
     }
 
-    if (userRole === 'admin') {
-      setActiveNav(targetNav);
-    } else {
-      setPendingNav(targetNav);
-      setPendingNavTitle(title);
-      setAuthModalOpen(true);
-    }
+    // 2. Modul Ber-Password: Selalu minta PIN / sandi otorisasi saat membuka modul divisi
+    setPendingNav(targetId as ActiveNavModule);
+    setPendingNavTitle(targetName);
+    setIsAuthModalOpen(true);
   };
 
-  const handleAuthSuccess = () => {
-    if (pendingNav) {
-      setActiveNav(pendingNav);
-    }
-    setAuthModalOpen(false);
-    setPendingNav(null);
-  };
+  const activeDivisionInfo =
+    DIVISIONS_TRANSLATIONS[language][activeRole.id] || {
+      name: activeRole.title,
+      sub: activeRole.subTitle,
+      desc: activeRole.summary,
+    };
 
-  const handleViewSop = (mod: RoleModuleData, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setActiveSopModal(mod);
+  // Handle clicking a neon card: activate neon glow AND open comprehensive detail modal
+  const handleCardClick = (role: RoleModuleData) => {
+    setActiveNeonCard('home', role.id);
+    setIsDetailModalOpen(true);
   };
 
   return (
-    <div className="space-y-6 pb-12 animate-fadeIn">
-      {/* Top Banner / Store Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-6 md:p-8 border border-slate-700/60 shadow-xl">
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                <Sparkles className="w-3.5 h-3.5" />
-                {isEn ? '6 Core Operational Divisions' : '6 Divisi Operasional Terpadu'}
-              </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                {businessProfile.category || 'Ritel Modern & Multi-Industry'}
-              </span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
-              {businessProfile.name || 'KHANSA SWALAYAN'}
-            </h1>
-            <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
-              {businessProfile.address || 'Jl. BERUA RAYA Komp Bumi Daya Indah, Daya, Makassar'}
-            </p>
-          </div>
+    <div id="home-module-container" className="w-full max-w-[1360px] mx-auto flex flex-col space-y-4 xl:space-y-5">
+      {/* 1. DYNAMIC STORE BRANDING & OPERATIONAL HEADER */}
+      <div
+        className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 transition duration-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 ${
+          isLight
+            ? 'bg-white border-slate-200 shadow-sm'
+            : 'bg-[#161b22] border-[#30363d]'
+        }`}
+      >
+        {(() => {
+          const companyName =
+            (businessProfile as any)?.companyName?.trim() ||
+            businessProfile?.name?.trim() ||
+            'KHANSA SWALAYAN';
+          const companyAddress =
+            businessProfile?.address?.trim() ||
+            'Jl. Operasional Ritel No. 1, Makassar';
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => setActiveNav('pos')}
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-950/40 transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0"
-            >
-              <Store className="w-4 h-4" />
-              <span>{isEn ? 'Open POS Cashier' : 'Buka Terminal Kasir'}</span>
-            </button>
-            
-          </div>
-        </div>
+          return (
+            <>
+              <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                {businessProfile?.logoUrl ? (
+                  <img
+                    src={businessProfile.logoUrl}
+                    alt={companyName}
+                    className="w-12 h-12 object-contain rounded-xl border border-slate-700/50 bg-slate-800/40 p-1 shrink-0 shadow-sm"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white font-black text-xl flex items-center justify-center shrink-0 shadow-md">
+                    {companyName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mt-0.5 mb-2">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0052FF]/15 border border-[#0052FF]/40 text-[#58a6ff] text-[10px] xl:text-[11px] font-semibold">
+                      <Sparkles className="w-3.5 h-3.5 text-[#00f2fe]" />
+                      <span>
+                        {isEn
+                          ? '6 Core Operational Divisions'
+                          : '6 Divisi Operasional Terpadu'}
+                      </span>
+                    </div>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
+                      isLight
+                        ? 'bg-slate-100 text-slate-600 border-slate-200'
+                        : 'bg-slate-800/80 text-gray-300 border-slate-700'
+                    }`}>
+                      {businessProfile?.category || 'Ritel Modern & Multi-Industry'}
+                    </span>
+                  </div>
+                  <h1
+                    className={`text-xl sm:text-2xl font-black tracking-tight ${
+                      isLight ? 'text-slate-900' : 'text-white'
+                    }`}
+                    style={{ fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif" }}
+                  >
+                    {companyName}
+                  </h1>
+                  <p className={`text-xs font-normal mt-0.5 line-clamp-2 max-w-2xl ${
+                    isLight ? 'text-slate-600' : 'text-slate-300'
+                  }`}>
+                    {companyAddress}
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Action Buttons */}
+              <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0 flex-wrap justify-start md:justify-end">
+                <button
+                  type="button"
+                  id="btn-quick-open-pos"
+                  onClick={() => setActiveNav('pos')}
+                  className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1.5 transition shadow-sm cursor-pointer"
+                >
+                  <Store className="w-4 h-4" />
+                  <span>{isEn ? 'Open Cashier Terminal' : 'Buka Terminal Kasir'}</span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-quick-open-superadmin-sop"
+                  onClick={() => {
+                    setSuperAdminTab('sop');
+                    localStorage.setItem('jacs_super_admin_tab', 'sop');
+                    handleOpenModule('admin', 'Super Admin & SOP');
+                  }}
+                  className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition flex items-center gap-1.5 cursor-pointer ${
+                    isLight
+                      ? 'border-slate-300 hover:bg-slate-100 text-slate-800'
+                      : 'border-slate-700 hover:bg-slate-800 text-slate-200'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                  <span>Super Admin & SOP</span>
+                </button>
+              </div>
+            </>
+          );
+        })()}
       </div>
 
-      {/* Grid 6 Divisi Operasional */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {modulesList.map((mod) => {
-          const IconComponent = mod.icon;
-          const isPos = mod.id === 'pos';
-          const isLocked = !isPos && userRole !== 'admin';
+      {/* 2. KARTU BAR NEON INTERAKTIF BERBEDA WARNA DENGAN HOVER GLOW REACTIVE */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 xl:gap-4">
+        {ROLE_MODULES.map((role) => {
+          const Icon = role.icon;
+          const isSelected = activeRole.id === role.id;
+          const isHovered = hoveredRoleId === role.id;
+          const activeStyle = getReactiveNeonGlowStyle(role.colorHex, isSelected, isHovered, isLight);
+          const divisionInfo =
+            DIVISIONS_TRANSLATIONS[language][role.id] || {
+              name: role.title,
+              sub: role.subTitle,
+              desc: role.summary,
+            };
+
+          const isLocked = isModuleLockedForUser(role.id);
 
           return (
             <div
-              key={mod.id}
-              onClick={() => handleCardClick(mod.targetNav, mod.title)}
-              className="group relative flex flex-col justify-between rounded-2xl bg-slate-900/90 p-5 shadow-2xl transition-all duration-300 hover:-translate-y-1 cursor-pointer overflow-hidden"
-              style={{
-                borderColor: mod.colorHex,
-                borderWidth: '2px',
-                borderStyle: 'solid',
-                boxShadow: `0 0 16px -2px ${mod.colorHex}88, 0 0 32px -4px ${mod.colorHex}44, inset 0 0 16px -4px ${mod.colorHex}33`,
+              key={role.id}
+              id={`neon-card-role-${role.id}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => handleCardClick(role)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleCardClick(role);
+                }
               }}
+              onMouseEnter={() => setHoveredRoleId(role.id)}
+              onMouseLeave={() => setHoveredRoleId(null)}
+              style={activeStyle}
+              className="group relative p-4 xl:p-5 rounded-2xl text-left transition-all duration-150 ease-out cursor-pointer overflow-hidden flex flex-col justify-between h-full min-h-[165px] xl:min-h-[185px] focus:outline-hidden"
             >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+              {/* Top Accent Neon Bar Strip */}
+              <div
+                className="absolute top-0 left-0 right-0 h-1.5 transition-all duration-150 ease-out"
+                style={{
+                  backgroundColor: role.colorHex,
+                  boxShadow: !isLight && (isSelected || isHovered) ? `0 0 16px ${role.colorHex}` : 'none',
+                }}
+              />
+
+              {/* Upper Content Group */}
+              <div className="w-full space-y-2.5 xl:space-y-3">
+                {/* Icon & Order Badge + Gembok Terkunci */}
+                <div className="flex items-center justify-between w-full pt-0.5">
+                  <div className="flex items-center gap-2">
                     <div
-                      className="w-11 h-11 rounded-lg flex items-center justify-center transition-transform group-hover:scale-105"
-                      style={{ backgroundColor: `${mod.colorHex}20`, color: mod.colorHex }}
+                      className="w-9 h-9 xl:w-10 xl:h-10 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shrink-0"
+                      style={{
+                        backgroundColor: `${role.colorHex}20`,
+                        border: `1px solid ${role.colorHex}45`,
+                      }}
                     >
-                      <IconComponent className="w-6 h-6" />
+                      <Icon
+                        className="w-4 h-4 xl:w-5 xl:h-5"
+                        style={{ color: role.colorHex }}
+                      />
                     </div>
-                    <div>
-                      <span className="text-xs font-mono font-bold text-slate-300">DIVISI {mod.order}</span>
-                      <h3 className="text-base font-bold text-white group-hover:text-indigo-300 transition-colors">
-                        {mod.title}
-                      </h3>
-                    </div>
+                    {isLocked && (
+                      <span
+                        className="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 text-[10px] font-mono font-bold shrink-0 shadow-xs"
+                        title={isEn ? 'Requires Super Admin authorization' : 'Terkunci - Wajib Otorisasi Super Admin'}
+                      >
+                        <Lock className="w-3 h-3 text-amber-400 shrink-0" />
+                        <span className="hidden sm:inline">{isEn ? 'LOCKED' : 'KUNCI'}</span>
+                      </span>
+                    )}
                   </div>
 
-                  {isLocked ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                      <Lock className="w-3 h-3" />
-                      {isEn ? 'LOCKED' : 'KUNCI'}
-                    </span>
-                  ) : (
-                    <span className="text-xs font-mono text-slate-400">#{mod.order}</span>
-                  )}
+                  <span
+                    className="font-mono text-[10px] xl:text-xs font-black tracking-widest px-2 py-0.5 xl:px-2.5 xl:py-1 rounded-full shrink-0"
+                    style={{
+                      backgroundColor: `${role.colorHex}15`,
+                      color: role.colorHex,
+                      border: `1px solid ${role.colorHex}35`,
+                    }}
+                  >
+                    {role.order}
+                  </span>
                 </div>
 
-                <p className="text-xs font-medium text-slate-300">{mod.subTitle}</p>
-                <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">{mod.summary}</p>
+                {/* Clean Role Title & Sub-judul */}
+                <div className="space-y-1">
+                  <h3
+                    className="text-base xl:text-lg font-semibold leading-snug transition-colors line-clamp-1"
+                    style={{
+                      color: isSelected ? role.colorHex : isLight ? '#0F172A' : '#e6edf3',
+                    }}
+                  >
+                    {divisionInfo.name}
+                  </h3>
+                  <p className="text-xs xl:text-sm text-slate-400 leading-relaxed line-clamp-2">
+                    {divisionInfo.sub}
+                  </p>
+                </div>
               </div>
 
-              <div className="pt-4 mt-4 border-t border-slate-800/60 flex items-center justify-between gap-2">
+              {/* Bottom Action Links: Selalu rata di dasar kartu */}
+              <div className="w-full pt-2.5 xl:pt-3 mt-2.5 xl:mt-3 border-t border-gray-700/30 flex items-center justify-between text-xs xl:text-sm">
                 <button
                   type="button"
-                  onClick={(e) => handleViewSop(mod, e)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white transition-colors py-1.5 px-2.5 rounded-lg hover:bg-slate-800"
+                  id={`btn-home-view-sop-${role.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSuperAdminTab('sop');
+                    localStorage.setItem('jacs_super_admin_tab', 'sop');
+                    if (role.id) {
+                      localStorage.setItem('jacs_sop_active_division', role.id);
+                    }
+                    unlockModule('admin');
+                    setIsSuperAdminAuthenticated(true);
+                    setActiveNav('admin');
+                    showToast(
+                      isEn
+                        ? `Navigating to Enterprise Info Center & SOP for ${divisionInfo.name}...`
+                        : `Membuka tab Info Center & SOP untuk ${divisionInfo.name} di Super Admin...`
+                    );
+                  }}
+                  className="text-slate-400 hover:text-cyan-400 flex items-center gap-1 group-hover:text-cyan-300 transition-colors cursor-pointer py-0.5"
+                  title={isEn ? 'View SOP in Super Admin' : 'Lihat Info Center & SOP di Modul Super Admin'}
                 >
-                  <Info className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>{isEn ? 'View SOP' : 'Lihat SOP'}</span>
+                  <span className="hover:underline">{isEn ? 'View SOP' : 'Lihat SOP'}</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </button>
-
-                <div className="inline-flex items-center gap-1 text-xs font-bold text-indigo-400 group-hover:text-indigo-300 transition-colors">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenModule(role.id, divisionInfo.name);
+                  }}
+                  className="inline-flex items-center gap-1.5 font-bold hover:underline cursor-pointer bg-transparent border-0 p-0 text-xs xl:text-sm"
+                  style={{ color: role.colorHex }}
+                >
+                  {isLocked && <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
                   <span>{isEn ? 'Open Module' : 'Buka Modul'}</span>
-                  <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </div>
+                  <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                </button>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Modal SOP Preview */}
-      {activeSopModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-slate-800 flex items-center justify-between bg-slate-850">
-              <div className="flex items-center gap-3">
+      {/* 3. MODAL DETAIL POP-UP (COMPREHENSIVE FUNGSI & SOP OPERASIONAL) */}
+      {isDetailModalOpen && (
+        <div
+          id="role-detail-modal"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fadeIn"
+          onClick={() => setIsDetailModalOpen(false)}
+        >
+          <div
+            className={`relative w-full max-w-3xl rounded-2xl border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${
+              isLight
+                ? 'bg-white border-slate-300 text-slate-900'
+                : 'bg-[#161b22] border-[#30363d] text-[#e6edf3]'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              boxShadow: `0 0 40px ${activeRole.colorHex}30, 0 20px 40px rgba(0,0,0,0.6)`,
+            }}
+          >
+            {/* Modal Neon Top Strip */}
+            <div
+              className="h-1.5 w-full"
+              style={{
+                backgroundColor: activeRole.colorHex,
+                boxShadow: `0 0 16px ${activeRole.colorHex}`,
+              }}
+            />
+
+            {/* Modal Header */}
+            <div
+              className={`p-5 sm:p-6 border-b flex items-start justify-between gap-4 ${
+                isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#12161c]'
+              }`}
+            >
+              <div className="flex items-center gap-3.5">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: `${activeSopModal.colorHex}20`, color: activeSopModal.colorHex }}
+                  className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                  style={{
+                    backgroundColor: `${activeRole.colorHex}25`,
+                    border: `1.5px solid ${activeRole.colorHex}60`,
+                    boxShadow: `0 0 16px ${activeRole.colorHex}40`,
+                  }}
                 >
-                  <activeSopModal.icon className="w-5 h-5" />
+                  {React.createElement(activeRole.icon, {
+                    className: 'w-6 h-6',
+                    style: { color: activeRole.colorHex },
+                  })}
                 </div>
                 <div>
-                  <span className="text-xs font-mono font-bold text-slate-400">
-                    SOP DIVISI {activeSopModal.order}
-                  </span>
-                  <h3 className="text-lg font-bold text-white">{activeSopModal.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        backgroundColor: `${activeRole.colorHex}20`,
+                        color: activeRole.colorHex,
+                        border: `1px solid ${activeRole.colorHex}40`,
+                      }}
+                    >
+                      {isEn ? 'DIVISION' : 'DIVISI'} {activeRole.order}
+                    </span>
+                    <span className="text-xs text-[#8b949e]">JacS ERP Ecosystem</span>
+                  </div>
+                  <h2
+                    className="text-lg sm:text-xl font-black tracking-tight mt-0.5"
+                    style={{ color: activeRole.colorHex }}
+                  >
+                    {activeDivisionInfo.name}
+                  </h2>
+                  <p className="text-xs text-[#8b949e]">{activeDivisionInfo.sub}</p>
                 </div>
               </div>
+
+              {/* Close Button */}
               <button
-                onClick={() => setActiveSopModal(null)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+                id="btn-close-role-modal"
+                onClick={() => setIsDetailModalOpen(false)}
+                className={`p-2 rounded-xl border transition cursor-pointer ${
+                  isLight
+                    ? 'border-slate-300 hover:bg-slate-200 text-slate-600'
+                    : 'border-[#30363d] hover:bg-[#21262d] text-gray-400 hover:text-white'
+                }`}
+                title={isEn ? 'Close Dialog' : 'Tutup Dialog'}
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto space-y-6">
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                  {isEn ? 'Operational Objective' : 'Tujuan Utama Operasional'}
-                </h4>
-                <ul className="space-y-2">
-                  {activeSopModal.objectives.map((obj, i) => (
-                    <li key={i} className="flex items-start gap-2.5 text-sm text-slate-300">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                      <span>{obj}</span>
-                    </li>
-                  ))}
-                </ul>
+            {/* Quick Switch Pills between the 6 Roles inside modal */}
+            <div
+              className={`px-4 sm:px-6 py-2 border-b flex gap-1.5 overflow-x-auto text-xs ${
+                isLight ? 'border-slate-200 bg-white' : 'border-[#30363d] bg-[#0d1117]'
+              }`}
+            >
+              {ROLE_MODULES.map((r) => {
+                const active = r.id === activeRole.id;
+                const rInfo = DIVISIONS_TRANSLATIONS[language][r.id] || { name: r.title };
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => setActiveNeonCard('home', r.id)}
+                    className={`px-2.5 py-1 rounded-lg font-medium whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
+                      active
+                        ? 'text-white font-bold shadow-sm'
+                        : isLight
+                        ? 'text-slate-600 hover:bg-slate-100'
+                        : 'text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#21262d]'
+                    }`}
+                    style={{
+                      backgroundColor: active ? r.colorHex : 'transparent',
+                    }}
+                  >
+                    <span className="font-mono text-[10px]">{r.order}</span>
+                    <span>{rInfo.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Modal Body (Scrollable) */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1 text-xs sm:text-sm leading-relaxed">
+              {/* Ringkasan Peran */}
+              <div
+                className="p-4 rounded-xl border"
+                style={{
+                  borderColor: `${activeRole.colorHex}35`,
+                  backgroundColor: `${activeRole.colorHex}10`,
+                }}
+              >
+                <div className="flex items-center gap-2 font-bold mb-1 text-xs sm:text-sm" style={{ color: activeRole.colorHex }}>
+                  <Info className="w-4 h-4" />
+                  <span>Ikhtisar Fungsi & Tanggung Jawab Utama</span>
+                </div>
+                <p className={isLight ? 'text-slate-700' : 'text-[#e6edf3]'}>
+                  {activeRole.summary}
+                </p>
               </div>
 
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-                  {isEn ? 'Standard Operating Procedure (SOP) Flow' : 'Alur Standar Operasional Prosedur (SOP)'}
+              {/* 1. Target & Tujuan Divisi */}
+              <div className="space-y-2.5">
+                <h4
+                  className={`text-xs uppercase font-bold tracking-wider flex items-center gap-1.5 ${
+                    isLight ? 'text-slate-900' : 'text-gray-200'
+                  }`}
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span>Target Kinerja & Tujuan Operasional</span>
                 </h4>
-                <div className="space-y-3">
-                  {activeSopModal.sopSteps.map((step) => (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  {activeRole.objectives.map((obj, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-xl border flex items-start gap-2 ${
+                        isLight
+                          ? 'bg-slate-50 border-slate-200 text-slate-700'
+                          : 'bg-[#0d1117] border-[#30363d] text-[#8b949e]'
+                      }`}
+                    >
+                      <span
+                        className="w-5 h-5 rounded-full flex items-center justify-center font-mono text-[10px] font-bold shrink-0 mt-0.5"
+                        style={{
+                          backgroundColor: `${activeRole.colorHex}20`,
+                          color: activeRole.colorHex,
+                        }}
+                      >
+                        {idx + 1}
+                      </span>
+                      <p className="text-xs leading-normal">{obj}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. SOP Alur Kerja Terstruktur */}
+              <div className="space-y-2.5">
+                <h4
+                  className={`text-xs uppercase font-bold tracking-wider flex items-center gap-1.5 ${
+                    isLight ? 'text-slate-900' : 'text-gray-200'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4" style={{ color: activeRole.colorHex }} />
+                  <span>Standard Operating Procedure (SOP) Langkah Kerja</span>
+                </h4>
+                <div className="space-y-2">
+                  {activeRole.sopSteps.map((step) => (
                     <div
                       key={step.step}
-                      className="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/60 flex items-start gap-3"
+                      className={`p-3.5 rounded-xl border flex items-start gap-3 transition ${
+                        isLight
+                          ? 'bg-slate-50 border-slate-200'
+                          : 'bg-[#0d1117] border-[#30363d]'
+                      }`}
                     >
-                      <span className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs font-mono shrink-0 shadow-xs"
+                        style={{
+                          backgroundColor: `${activeRole.colorHex}25`,
+                          color: activeRole.colorHex,
+                          border: `1px solid ${activeRole.colorHex}45`,
+                        }}
+                      >
                         {step.step}
-                      </span>
-                      <div>
-                        <h5 className="text-sm font-semibold text-white">{step.title}</h5>
-                        <p className="text-xs text-slate-400 mt-0.5">{step.desc}</p>
                       </div>
+                      <div>
+                        <h5
+                          className="font-bold text-xs sm:text-sm"
+                          style={{ color: activeRole.colorHex }}
+                        >
+                          {step.title}
+                        </h5>
+                        <p className={`text-xs mt-1 leading-relaxed ${isLight ? 'text-slate-600' : 'text-[#8b949e]'}`}>
+                          {step.desc}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 3. Relasi Sinkronisasi Database */}
+              <div className="space-y-2">
+                <h4
+                  className={`text-xs uppercase font-bold tracking-wider flex items-center gap-1.5 ${
+                    isLight ? 'text-slate-900' : 'text-gray-200'
+                  }`}
+                >
+                  <Database className="w-4 h-4 text-[#00f2fe]" />
+                  <span>Integrasi Data Google Sheets & Modul Lain</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {activeRole.dataIntegration.map((integ, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-xl border ${
+                        isLight
+                          ? 'bg-slate-50 border-slate-200'
+                          : 'bg-[#0d1117] border-[#30363d]'
+                      }`}
+                    >
+                      <div className="font-mono font-bold text-xs text-cyan-400 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                        {integ.target}
+                      </div>
+                      <p className={`text-xs mt-1 leading-relaxed ${isLight ? 'text-slate-600' : 'text-[#8b949e]'}`}>
+                        {integ.desc}
+                      </p>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="p-4 border-t border-slate-800 bg-slate-850 flex items-center justify-between">
-              <button
-                onClick={() => setActiveSopModal(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
-              >
-                {isEn ? 'Close' : 'Tutup'}
-              </button>
-
-              <button
-                onClick={() => {
-                  const target = activeSopModal.targetNav;
-                  const title = activeSopModal.title;
-                  setActiveSopModal(null);
-                  handleCardClick(target, title);
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors shadow-lg shadow-indigo-950/40"
-              >
-                <span>{isEn ? 'Go to Module' : 'Buka Modul'}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+            {/* Modal Footer */}
+            <div
+              className={`p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3 text-xs ${
+                isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#12161c]'
+              }`}
+            >
+              <span className="text-[#8b949e]">
+                JacS ERP Standard Operating Procedure • {isEn ? 'Division' : 'Divisi'} {activeRole.order} ({activeDivisionInfo.name})
+              </span>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsDetailModalOpen(false)}
+                  className="px-3.5 py-2 rounded-xl text-gray-400 hover:text-white transition cursor-pointer"
+                >
+                  {isEn ? 'Close' : 'Tutup'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenModule(activeRole.id, activeDivisionInfo.name);
+                    if (isSuperAdmin) {
+                      setIsDetailModalOpen(false);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl text-slate-950 font-bold cursor-pointer shadow-md transition hover:brightness-110 flex items-center gap-1.5"
+                  style={{ backgroundColor: activeRole.colorHex }}
+                >
+                  {['executive', 'hr', 'finance', 'warehouse', 'purchasing'].includes(activeRole.id) && !isSuperAdmin && (
+                    <Lock className="w-4 h-4 text-slate-950 shrink-0" />
+                  )}
+                  <span>{isEn ? `Open ${activeDivisionInfo.name}` : `Buka Modul ${activeDivisionInfo.name}`}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Quick Auth Modal */}
+      {/* Modal Otorisasi Ringkas Akses Modul */}
       <QuickAuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        onSuccess={handleAuthSuccess}
-        title={isEn ? `Authorization Required` : `Otorisasi Dibutuhkan`}
-        message={
-          isEn
+        isOpen={isAuthModalOpen}
+        onClose={() => {
+          setIsAuthModalOpen(false);
+          setPendingNav(null);
+        }}
+        onSuccess={() => {
+          if (pendingNav) {
+            unlockModule(pendingNav);
+            setActiveNav(pendingNav);
+            setPendingNav(null);
+          }
+          setIsAuthModalOpen(false);
+          setIsDetailModalOpen(false);
+        }}
+        moduleTitle={pendingNavTitle}
+        targetModule={pendingNav || undefined}
+        requireMasterPassword={pendingNav === 'admin'}
+        subtitle={
+          pendingNav === 'admin'
+            ? (isEn
+                ? 'PIN (1234) or Master Password to access Super Admin'
+                : 'Masukkan PIN (1234) atau Sandi Master Super Admin')
+            : isEn
             ? `Enter PIN (1234) to access ${pendingNavTitle}`
             : `Masukkan PIN (1234) untuk mengakses ${pendingNavTitle}`
         }
