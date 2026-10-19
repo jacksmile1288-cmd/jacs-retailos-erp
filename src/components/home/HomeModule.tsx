@@ -285,6 +285,7 @@ const ROLE_MODULES: RoleModuleData[] = [
   },
 ];
 
+// Array 6 kartu divisi operasional Beranda (modulesList)
 export const modulesList = ROLE_MODULES;
 
 export const HomeModule: React.FC = () => {
@@ -308,10 +309,12 @@ export const HomeModule: React.FC = () => {
   const isLight = theme === 'light';
   const isEn = language === 'en';
 
+  // Active role selected for interactive neon glow & detail modal dialog (persisted across modules)
   const activeRoleId = activeNeonCards['home'] || 'executive';
   const activeRole = ROLE_MODULES.find((r) => r.id === activeRoleId) || ROLE_MODULES[0];
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
+  // QuickAuthModal state untuk proteksi pembukaan modul divisi
   const [pendingNav, setPendingNav] = useState<ActiveNavModule | null>(null);
   const [pendingNavTitle, setPendingNavTitle] = useState<string>('');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -326,11 +329,13 @@ export const HomeModule: React.FC = () => {
   };
 
   const handleOpenModule = (targetId: string, targetName: string) => {
+    // 1. Modul Bebas: HOME, DASHBOARD, POS (Terbuka untuk umum/kasir tanpa sandi)
     if (targetId === 'home' || targetId === 'dashboard' || targetId === 'pos') {
       setActiveNav(targetId as ActiveNavModule);
       return;
     }
 
+    // 2. Modul Ber-Password: Selalu minta PIN / sandi otorisasi saat membuka modul divisi
     setPendingNav(targetId as ActiveNavModule);
     setPendingNavTitle(targetName);
     setIsAuthModalOpen(true);
@@ -343,6 +348,7 @@ export const HomeModule: React.FC = () => {
       desc: activeRole.summary,
     };
 
+  // Handle clicking a neon card: activate neon glow AND open comprehensive detail modal
   const handleCardClick = (role: RoleModuleData) => {
     setActiveNeonCard('home', role.id);
     setIsDetailModalOpen(true);
@@ -350,7 +356,7 @@ export const HomeModule: React.FC = () => {
 
   return (
     <div id="home-module-container" className="w-full max-w-[1360px] mx-auto flex flex-col space-y-4 xl:space-y-5">
-      {/* 1. STORE BRANDING & OPERATIONAL HEADER */}
+      {/* 1. DYNAMIC STORE BRANDING & OPERATIONAL HEADER */}
       <div
         className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 transition duration-200 flex items-start sm:items-center justify-between gap-4 ${
           isLight
@@ -409,7 +415,7 @@ export const HomeModule: React.FC = () => {
                 >
                   {companyName}
                 </h1>
-                <p className={`text-xs font-normal mt-0.5 line-clamp-2 min-h-[2.5rem] h-[215px] h-[215px] h-[215px] h-[2.5rem] max-w-2xl ${
+                <p className={`text-xs font-normal mt-0.5 line-clamp-2 max-w-2xl ${
                   isLight ? 'text-slate-600' : 'text-slate-300'
                 }`}>
                   {companyAddress}
@@ -420,8 +426,8 @@ export const HomeModule: React.FC = () => {
         })()}
       </div>
 
-      {/* 2. 6 KARTU BAR NEON PRESISI & SIMETRIS (TINGGI IDENTIK 215PX) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
+      {/* 2. KARTU BAR NEON INTERAKTIF BERBEDA WARNA DENGAN HOVER GLOW REACTIVE */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 xl:gap-4">
         {ROLE_MODULES.map((role) => {
           const Icon = role.icon;
           const isSelected = activeRole.id === role.id;
@@ -452,7 +458,7 @@ export const HomeModule: React.FC = () => {
               onMouseEnter={() => setHoveredRoleId(role.id)}
               onMouseLeave={() => setHoveredRoleId(null)}
               style={activeStyle}
-              className="group relative p-5 rounded-2xl text-left transition-all duration-150 ease-out cursor-pointer overflow-hidden flex flex-col justify-between h-[215px] focus:outline-hidden"
+              className="group relative p-4 xl:p-5 rounded-2xl text-left transition-all duration-150 ease-out cursor-pointer overflow-hidden flex flex-col justify-between h-full min-h-[165px] xl:min-h-[185px] focus:outline-hidden"
             >
               {/* Top Accent Neon Bar Strip */}
               <div
@@ -464,36 +470,35 @@ export const HomeModule: React.FC = () => {
               />
 
               {/* Upper Content Group */}
-              <div className="w-full flex flex-col space-y-2.5">
-                <div className="h-9 flex items-center justify-between w-full">
+              <div className="w-full space-y-2.5 xl:space-y-3">
+                {/* Icon & Order Badge + Gembok Terkunci */}
+                <div className="flex items-center justify-between w-full pt-0.5">
                   <div className="flex items-center gap-2">
                     <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shrink-0"
+                      className="w-9 h-9 xl:w-10 xl:h-10 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shrink-0"
                       style={{
                         backgroundColor: `${role.colorHex}20`,
                         border: `1px solid ${role.colorHex}45`,
                       }}
                     >
                       <Icon
-                        className="w-4 h-4"
+                        className="w-4 h-4 xl:w-5 xl:h-5"
                         style={{ color: role.colorHex }}
                       />
                     </div>
-                    {isLocked ? (
+                    {isLocked && (
                       <span
-                        className="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 text-[10px] font-mono font-bold shrink-0"
+                        className="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 text-[10px] font-mono font-bold shrink-0 shadow-xs"
                         title={isEn ? 'Requires Super Admin authorization' : 'Terkunci - Wajib Otorisasi Super Admin'}
                       >
                         <Lock className="w-3 h-3 text-amber-400 shrink-0" />
                         <span className="hidden sm:inline">{isEn ? 'LOCKED' : 'KUNCI'}</span>
                       </span>
-                    ) : (
-                      <span className="h-5 invisible inline-block px-2"></span>
                     )}
                   </div>
 
                   <span
-                    className="font-mono text-xs font-black tracking-widest px-2.5 py-0.5 rounded-full shrink-0"
+                    className="font-mono text-[10px] xl:text-xs font-black tracking-widest px-2 py-0.5 xl:px-2.5 xl:py-1 rounded-full shrink-0"
                     style={{
                       backgroundColor: `${role.colorHex}15`,
                       color: role.colorHex,
@@ -504,23 +509,24 @@ export const HomeModule: React.FC = () => {
                   </span>
                 </div>
 
+                {/* Clean Role Title & Sub-judul */}
                 <div className="space-y-1">
                   <h3
-                    className="text-base font-bold leading-tight transition-colors truncate"
+                    className="text-base xl:text-lg font-semibold leading-snug transition-colors line-clamp-1"
                     style={{
                       color: isSelected ? role.colorHex : isLight ? '#0F172A' : '#e6edf3',
                     }}
                   >
                     {divisionInfo.name}
                   </h3>
-                  <p className="text-xs text-slate-400 leading-snug line-clamp-2 min-h-[2.5rem] h-[215px] h-[215px] h-[215px] h-[2.5rem] h-[2.5rem]">
+                  <p className="text-xs xl:text-sm text-slate-400 leading-relaxed line-clamp-2">
                     {divisionInfo.sub}
                   </p>
                 </div>
               </div>
 
-              {/* Bottom Action Links */}
-              <div className="w-full pt-2.5 border-t border-gray-700/30 flex items-center justify-between text-xs mt-auto pt-2.5">
+              {/* Bottom Action Links: Selalu rata di dasar kartu */}
+              <div className="w-full pt-2.5 xl:pt-3 mt-2.5 xl:mt-3 border-t border-gray-700/30 flex items-center justify-between text-xs xl:text-sm">
                 <button
                   type="button"
                   id={`btn-home-view-sop-${role.id}`}
@@ -552,7 +558,7 @@ export const HomeModule: React.FC = () => {
                     e.stopPropagation();
                     handleOpenModule(role.id, divisionInfo.name);
                   }}
-                  className="inline-flex items-center gap-1.5 font-bold hover:underline cursor-pointer bg-transparent border-0 p-0 text-xs"
+                  className="inline-flex items-center gap-1.5 font-bold hover:underline cursor-pointer bg-transparent border-0 p-0 text-xs xl:text-sm"
                   style={{ color: role.colorHex }}
                 >
                   {isLocked && <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
@@ -565,7 +571,7 @@ export const HomeModule: React.FC = () => {
         })}
       </div>
 
-      {/* 3. MODAL DETAIL POP-UP */}
+      {/* 3. MODAL DETAIL POP-UP (COMPREHENSIVE FUNGSI & SOP OPERASIONAL) */}
       {isDetailModalOpen && (
         <div
           id="role-detail-modal"
@@ -583,6 +589,7 @@ export const HomeModule: React.FC = () => {
               boxShadow: `0 0 40px ${activeRole.colorHex}30, 0 20px 40px rgba(0,0,0,0.6)`,
             }}
           >
+            {/* Modal Neon Top Strip */}
             <div
               className="h-1.5 w-full"
               style={{
@@ -591,6 +598,7 @@ export const HomeModule: React.FC = () => {
               }}
             />
 
+            {/* Modal Header */}
             <div
               className={`p-5 sm:p-6 border-b flex items-start justify-between gap-4 ${
                 isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#12161c]'
@@ -634,6 +642,7 @@ export const HomeModule: React.FC = () => {
                 </div>
               </div>
 
+              {/* Close Button */}
               <button
                 id="btn-close-role-modal"
                 onClick={() => setIsDetailModalOpen(false)}
@@ -648,6 +657,7 @@ export const HomeModule: React.FC = () => {
               </button>
             </div>
 
+            {/* Quick Switch Pills between the 6 Roles inside modal */}
             <div
               className={`px-4 sm:px-6 py-2 border-b flex gap-1.5 overflow-x-auto text-xs ${
                 isLight ? 'border-slate-200 bg-white' : 'border-[#30363d] bg-[#0d1117]'
@@ -678,7 +688,9 @@ export const HomeModule: React.FC = () => {
               })}
             </div>
 
+            {/* Modal Body (Scrollable) */}
             <div className="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1 text-xs sm:text-sm leading-relaxed">
+              {/* Ringkasan Peran */}
               <div
                 className="p-4 rounded-xl border"
                 style={{
@@ -695,6 +707,7 @@ export const HomeModule: React.FC = () => {
                 </p>
               </div>
 
+              {/* 1. Target & Tujuan Divisi */}
               <div className="space-y-2.5">
                 <h4
                   className={`text-xs uppercase font-bold tracking-wider flex items-center gap-1.5 ${
@@ -729,6 +742,7 @@ export const HomeModule: React.FC = () => {
                 </div>
               </div>
 
+              {/* 2. SOP Alur Kerja Terstruktur */}
               <div className="space-y-2.5">
                 <h4
                   className={`text-xs uppercase font-bold tracking-wider flex items-center gap-1.5 ${
@@ -774,6 +788,7 @@ export const HomeModule: React.FC = () => {
                 </div>
               </div>
 
+              {/* 3. Relasi Sinkronisasi Database */}
               <div className="space-y-2">
                 <h4
                   className={`text-xs uppercase font-bold tracking-wider flex items-center gap-1.5 ${
@@ -806,6 +821,7 @@ export const HomeModule: React.FC = () => {
               </div>
             </div>
 
+            {/* Modal Footer */}
             <div
               className={`p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3 text-xs ${
                 isLight ? 'border-slate-200 bg-slate-50' : 'border-[#30363d] bg-[#12161c]'
@@ -845,6 +861,7 @@ export const HomeModule: React.FC = () => {
         </div>
       )}
 
+      {/* Modal Otorisasi Ringkas Akses Modul */}
       <QuickAuthModal
         isOpen={isAuthModalOpen}
         onClose={() => {
