@@ -350,7 +350,7 @@ export const HomeModule: React.FC = () => {
 
   return (
     <div id="home-module-container" className="w-full max-w-[1360px] mx-auto flex flex-col space-y-4 xl:space-y-5">
-      {/* 1. STORE BRANDING & OPERATIONAL HEADER (TANPA TOMBOL GANDA) */}
+      {/* 1. STORE BRANDING & OPERATIONAL HEADER */}
       <div
         className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 transition duration-200 flex items-start sm:items-center justify-between gap-4 ${
           isLight
@@ -519,7 +519,7 @@ export const HomeModule: React.FC = () => {
                 </div>
               </div>
 
-              {/* Bottom Action Links: Selalu sejajar di dasar kartu */}
+              {/* Bottom Action Links */}
               <div className="w-full pt-2.5 border-t border-gray-700/30 flex items-center justify-between text-xs mt-auto">
                 <button
                   type="button"
