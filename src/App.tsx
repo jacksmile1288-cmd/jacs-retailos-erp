@@ -48,19 +48,15 @@ const AppContent: React.FC = () => {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#0d1117] text-[#c9d1d9]'}`}>
-      {/* Sidebar Navigasi Kiri: Lebar terkunci kaku & tidak menimpa */}
       <div className="shrink-0 h-full hidden md:block border-r border-[#30363d] bg-[#161b22]">
         <Sidebar />
       </div>
-
-      {/* Konten Kanan: Fleksibel, melebar penuh, dan scroll mandiri */}
       <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
         <Topbar />
         <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {renderModule()}
         </main>
       </div>
-
       <PinAuthModal />
       <ReceiptModal />
     </div>
