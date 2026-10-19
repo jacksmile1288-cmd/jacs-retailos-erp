@@ -350,7 +350,7 @@ export const HomeModule: React.FC = () => {
 
   return (
     <div id="home-module-container" className="w-full max-w-[1360px] mx-auto flex flex-col space-y-4 xl:space-y-5">
-      {/* 1. DYNAMIC STORE BRANDING & OPERATIONAL HEADER */}
+      {/* 1. DYNAMIC STORE BRANDING & OPERATIONAL HEADER (TANPA TOMBOL GANDA) */}
       <div
         className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 transition duration-200 flex items-start sm:items-center justify-between gap-4 ${
           isLight
@@ -420,8 +420,8 @@ export const HomeModule: React.FC = () => {
         })()}
       </div>
 
-      {/* 2. 6 KARTU BAR NEON PRESISI & SIMETRIS SEMPURNA */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 xl:gap-4 items-stretch">
+      {/* 2. 6 KARTU BAR NEON PRESISI & SIMETRIS 100% */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
         {ROLE_MODULES.map((role) => {
           const Icon = role.icon;
           const isSelected = activeRole.id === role.id;
@@ -452,7 +452,7 @@ export const HomeModule: React.FC = () => {
               onMouseEnter={() => setHoveredRoleId(role.id)}
               onMouseLeave={() => setHoveredRoleId(null)}
               style={activeStyle}
-              className="group relative p-4 xl:p-5 rounded-2xl text-left transition-all duration-150 ease-out cursor-pointer overflow-hidden flex flex-col justify-between h-full focus:outline-hidden"
+              className="group relative p-5 rounded-2xl text-left transition-all duration-150 ease-out cursor-pointer overflow-hidden flex flex-col justify-between h-[210px] focus:outline-hidden"
             >
               {/* Top Accent Neon Bar Strip */}
               <div
@@ -464,25 +464,25 @@ export const HomeModule: React.FC = () => {
               />
 
               {/* Upper Content Group */}
-              <div className="w-full flex-1 flex flex-col space-y-3">
+              <div className="w-full flex flex-col space-y-2.5">
                 {/* Header: Icon, Order Badge & Lock Status */}
-                <div className="h-10 flex items-center justify-between w-full pt-0.5">
+                <div className="h-9 flex items-center justify-between w-full">
                   <div className="flex items-center gap-2">
                     <div
-                      className="w-9 h-9 xl:w-10 xl:h-10 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shrink-0"
+                      className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shrink-0"
                       style={{
                         backgroundColor: `${role.colorHex}20`,
                         border: `1px solid ${role.colorHex}45`,
                       }}
                     >
                       <Icon
-                        className="w-4 h-4 xl:w-5 xl:h-5"
+                        className="w-4 h-4"
                         style={{ color: role.colorHex }}
                       />
                     </div>
                     {isLocked ? (
                       <span
-                        className="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 text-[10px] font-mono font-bold shrink-0 shadow-xs"
+                        className="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 text-[10px] font-mono font-bold shrink-0"
                         title={isEn ? 'Requires Super Admin authorization' : 'Terkunci - Wajib Otorisasi Super Admin'}
                       >
                         <Lock className="w-3 h-3 text-amber-400 shrink-0" />
@@ -494,7 +494,7 @@ export const HomeModule: React.FC = () => {
                   </div>
 
                   <span
-                    className="font-mono text-[10px] xl:text-xs font-black tracking-widest px-2 py-0.5 xl:px-2.5 xl:py-1 rounded-full shrink-0"
+                    className="font-mono text-xs font-black tracking-widest px-2.5 py-0.5 rounded-full shrink-0"
                     style={{
                       backgroundColor: `${role.colorHex}15`,
                       color: role.colorHex,
@@ -506,23 +506,23 @@ export const HomeModule: React.FC = () => {
                 </div>
 
                 {/* Symmetrical Title & Sub-title Container */}
-                <div className="space-y-1 flex-1 flex flex-col justify-start">
+                <div className="space-y-1">
                   <h3
-                    className="text-base xl:text-lg font-semibold leading-snug transition-colors line-clamp-1 min-h-[1.75rem] flex items-center"
+                    className="text-base font-bold leading-tight transition-colors truncate"
                     style={{
                       color: isSelected ? role.colorHex : isLight ? '#0F172A' : '#e6edf3',
                     }}
                   >
                     {divisionInfo.name}
                   </h3>
-                  <p className="text-xs xl:text-sm text-slate-400 leading-relaxed line-clamp-2 min-h-[2.5rem]">
+                  <p className="text-xs text-slate-400 leading-snug line-clamp-2 h-[2.5rem]">
                     {divisionInfo.sub}
                   </p>
                 </div>
               </div>
 
               {/* Bottom Action Links: Flat baseline alignment */}
-              <div className="w-full pt-3 mt-4 border-t border-gray-700/30 flex items-center justify-between text-xs xl:text-sm">
+              <div className="w-full pt-2.5 border-t border-gray-700/30 flex items-center justify-between text-xs mt-auto">
                 <button
                   type="button"
                   id={`btn-home-view-sop-${role.id}`}
@@ -554,7 +554,7 @@ export const HomeModule: React.FC = () => {
                     e.stopPropagation();
                     handleOpenModule(role.id, divisionInfo.name);
                   }}
-                  className="inline-flex items-center gap-1.5 font-bold hover:underline cursor-pointer bg-transparent border-0 p-0 text-xs xl:text-sm"
+                  className="inline-flex items-center gap-1.5 font-bold hover:underline cursor-pointer bg-transparent border-0 p-0 text-xs"
                   style={{ color: role.colorHex }}
                 >
                   {isLocked && <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
