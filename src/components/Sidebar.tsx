@@ -15,7 +15,7 @@ import {
 import { useApp } from '../context/AppContext';
 
 export const Sidebar: React.FC = () => {
-  const { activeNav, setActiveNav, theme } = useApp();
+  const { activeNav, setActiveNav } = useApp();
 
   const navItems = [
     { id: 'home', label: 'HOME', icon: Home },
@@ -33,14 +33,22 @@ export const Sidebar: React.FC = () => {
 
   return (
     <aside className="w-64 bg-slate-900 border-r border-slate-800 text-slate-200 flex flex-col h-screen select-none shrink-0">
-      {/* Brand Header */}
-      <div className="p-4 border-b border-slate-800 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden bg-[#0d1117]/80 border border-[#30363d]/60 p-1 shadow-md">
-            <img src="/Logo-JacS-Enterprise.png" alt="JacS Enterprise Logo" className="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(0,82,255,0.4)]" />
-          </div>
-        <div>
+     {/* Brand Header */}
+      <div 
+        onClick={() => setActiveNav('home' as any)}
+        className="p-4 border-b border-slate-800 flex items-center gap-3 cursor-pointer hover:bg-slate-800/40 transition select-none"
+        title="JacS Enterprise RetailOS ERP - Kembali ke Home"
+      >
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#0d1117]/90 border border-slate-700/60 p-1.5 shadow-md">
+          <img 
+            src="/Logo-JacS-Enterprise.svg" 
+            alt="Logo JacS Enterprise" 
+            className="w-full h-full object-contain filter drop-shadow-[0_0_6px_rgba(249,115,22,0.35)]" 
+          />
+        </div>
+        <div className="flex flex-col min-w-0">
           <div className="font-bold text-white text-base leading-tight tracking-wide flex items-center gap-1.5">
-            JacS RetailOS
+            <span>JacS RetailOS</span>
             <span className="text-[10px] font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-1.5 py-0.5 rounded">
               ERP
             </span>
@@ -60,7 +68,7 @@ export const Sidebar: React.FC = () => {
           return (
             <button
               key={item.id}
-              onClick={() => setActiveNav(item.id)}
+              onClick={() => setActiveNav(item.id as any)}
               className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all group ${
                 isActive
                   ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/10 text-cyan-400 border border-cyan-500/30 shadow-sm'

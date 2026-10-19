@@ -12,20 +12,12 @@ import {
   Clock,
   Sun,
   Moon,
-  BookOpen,
   Globe,
   ChevronDown,
   Check,
   Menu,
-  Shield,
-  LogOut,
-  Sparkles,
-  Info,
-  Users,
   ShieldAlert,
-  ArrowRight,
   ArrowLeft,
-  Settings,
   DoorOpen,
   Camera,
   Upload,
@@ -40,7 +32,7 @@ import { SopModal } from './common/SopModal';
 import { AboutSystemModal } from './common/AboutSystemModal';
 import { ProfileSettingsModal } from './common/ProfileSettingsModal';
 
-// Icon SVG Siluet Avatar Kosong / Blank (tanpa foto, tanpa inisial sembarangan)
+// Icon SVG Siluet Avatar Kosong / Blank
 const BlankAvatarSilhouette: React.FC<{
   className?: string;
   iconSize?: string;
@@ -72,57 +64,21 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     activeUser,
     currentUser: contextCurrentUser,
     contextualProfile,
-    openPinAuth,
     toastMessage,
     isOnline,
     offlineQueue,
-    syncOfflineQueue,
     syncOfflineTransactions,
     showToast,
     activeNav,
     setActiveNav,
-    isSuperAdminAuthenticated,
     setIsSuperAdminAuthenticated,
     exitSuperAdminSession,
-    logout,
-    employees,
-    setActiveUser,
-    setCurrentUser,
     lockModule,
     getModulePin,
     updateModulePin,
   } = useApp();
 
   const currentUser = contextCurrentUser !== undefined ? contextCurrentUser : activeUser;
-
-  const employeeMatch = currentUser
-    ? employees.find(
-        (e) =>
-          e.id === currentUser.id ||
-          e.id === currentUser.user_id ||
-          e.name.toLowerCase().trim() === currentUser.name.toLowerCase().trim()
-      )
-    : null;
-
-  const currentDivision =
-    currentUser?.division ||
-    employeeMatch?.division ||
-    employeeMatch?.department ||
-    (currentUser?.role === 'Manager'
-      ? 'Executive Manager'
-      : currentUser?.role === 'HR Staff'
-      ? 'HR'
-      : currentUser?.role === 'Finance Staff'
-      ? 'Finance'
-      : currentUser?.role === 'Purchasing Staff'
-      ? 'Purchasing'
-      : currentUser?.role === 'Inventory Staff'
-      ? 'Warehouse'
-      : currentUser?.role === 'Super Admin'
-      ? 'Super Admin'
-      : 'POS & Kasir');
-
-  const currentEmpId = currentUser?.id || employeeMatch?.nip || currentUser?.user_id || '-';
 
   // Key unik untuk profil/karyawan/modul yang sedang aktif
   const currentProfileKey = contextualProfile.isGeneral
@@ -142,18 +98,17 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
 
-  // Foto aktif khusus untuk profil modul/karyawan yang sedang dibuka (null jika belum di-upload)
+  // Foto aktif khusus untuk profil modul/karyawan yang sedang dibuka
   const activePhoto =
     customPhotos[currentProfileKey] ||
     (typeof window !== 'undefined' ? localStorage.getItem(`jacs_custom_photo_${currentProfileKey}`) : null) ||
     null;
 
-  // Handler Upload / Ganti Foto dengan validasi maks 1MB & resize otomatis ke 1:1 base64
+  // Handler Upload / Ganti Foto dengan validasi maks 1MB & resize 1:1 base64
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validasi ukuran maks 1MB (1,048,576 bytes)
     if (file.size > 1024 * 1024) {
       showToast('⚠️ Ukuran foto melebihi 1MB! Silakan pilih file maksimal 1MB.');
       e.target.value = '';
@@ -210,7 +165,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     showToast('📸 Foto profil berhasil diperbarui!');
   };
 
-  // Handler Hapus Foto (kembali ke siluet avatar standar)
+  // Handler Hapus Foto
   const handleDeletePhoto = () => {
     setCustomPhotos((prev) => {
       const updated = { ...prev };
@@ -226,7 +181,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     showToast('🗑️ Foto profil dihapus. Kembali ke siluet avatar standar.');
   };
 
-  // Handler Kunci Modul Ini (mengunci modul saat ini tanpa melempar jauh ke HOME/Dashboard)
+  // Handler Kunci Modul Ini
   const handleLockCurrentModule = () => {
     setIsDetailModalOpen(false);
     lockModule(activeNav);
@@ -236,13 +191,11 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     showToast(`🔒 Modul ${contextualProfile.moduleTitle} telah dikunci.`);
   };
 
-  // Modul yang dilindungi password (semua modul kecuali home, dashboard, pos)
   const isPasswordProtectedModule =
     activeNav !== 'home' &&
     activeNav !== 'dashboard' &&
     activeNav !== 'pos';
 
-  // State untuk Ubah PIN Modul Mandiri di Modal Profil
   const [oldPinInput, setOldPinInput] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
   const [pinMessage, setPinMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
@@ -340,8 +293,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
           : 'bg-slate-900/85 border-b border-slate-800/80 text-[#e6edf3]'
       }`}
     >
-      {/* 1. Sisi Kiri: Mobile trigger, Jam Operasional Realtime, Status System Online, & Tombol Info Center & SOP */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      {/* 1. Sisi Kiri: Logo Asli, Mobile Trigger, Jam Realtime, & Status Koneksi */}
+      <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
         {onOpenMobileMenu && (
           <button
             id="btn-topbar-mobile-menu"
@@ -359,6 +312,31 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
           </button>
         )}
 
+        {/* Logo Resmi JacS Enterprise */}
+        <div
+          onClick={() => setActiveNav('home')}
+          className="flex items-center gap-2.5 cursor-pointer hover:opacity-90 transition group select-none shrink-0"
+          title="JacS Enterprise RetailOS ERP - Kembali ke Home"
+        >
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 p-1 shadow-xs">
+            <img
+              src="/Logo-JacS-Enterprise.svg"
+              alt="Logo JacS Enterprise"
+              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
+            />
+          </div>
+          <div className="hidden xl:flex flex-col leading-none">
+            <span className="font-extrabold text-xs tracking-tight text-slate-900 dark:text-white">
+              JacS Enterprise
+            </span>
+            <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-medium">
+              RetailOS ERP
+            </span>
+          </div>
+        </div>
+
+        <div className="hidden sm:block h-5 w-[1px] bg-slate-300 dark:bg-slate-700/80 mx-0.5" />
+
         {/* Jam Digital Realtime */}
         <div
           id="topbar-digital-clock"
@@ -372,7 +350,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
           <span className="whitespace-nowrap font-medium">{currentTime || '00:00:00'}</span>
         </div>
 
-        {/* Indikator Status Koneksi & Cache (Online / Offline Mode) */}
+        {/* Status Koneksi */}
         {isOnline ? (
           <div
             id="system-online-badge"
@@ -389,7 +367,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
             </span>
             <span className={`font-bold tracking-wide flex items-center gap-1 text-[11px] whitespace-nowrap ${isLight ? 'text-emerald-700' : 'text-emerald-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.9)]'}`}>
               <Wifi className="w-3 h-3 shrink-0" />
-              <span>ONLINE (Cloud Connected)</span>
+              <span className="hidden md:inline">ONLINE (Cloud Connected)</span>
+              <span className="md:hidden">ONLINE</span>
             </span>
             {offlineQueue.length > 0 && (
               <button
@@ -403,7 +382,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 title="Klik untuk menyinkronkan transaksi offline sekarang ke Cloud"
               >
                 <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-                <span>Sinkronkan Sekarang (Sync Cloud) ({offlineQueue.length})</span>
+                <span>Sync ({offlineQueue.length})</span>
               </button>
             )}
           </div>
@@ -422,17 +401,18 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
             </span>
             <span className="font-black tracking-wide flex items-center gap-1 text-[11px] whitespace-nowrap text-amber-500 dark:text-amber-300">
               <WifiOff className="w-3.5 h-3.5 shrink-0" />
-              <span>OFFLINE MODE (Local Storage Active)</span>
+              <span className="hidden md:inline">OFFLINE MODE (Local Storage Active)</span>
+              <span className="md:hidden">OFFLINE</span>
             </span>
             {offlineQueue.length > 0 && (
               <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-500 text-slate-950">
-                [ {offlineQueue.length} Transaksi Tertunda ]
+                [{offlineQueue.length}]
               </span>
             )}
           </div>
         )}
 
-        {/* Indikator Status Mode Super Admin (Elevated Privileges) */}
+        {/* Indikator Super Admin */}
         {activeNav === 'admin' && (
           <div
             id="topbar-super-admin-status-badge"
@@ -444,16 +424,15 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
             title="Mode Aktif: Super Admin (Elevated Privileges)"
           >
             <ShieldAlert className="w-3.5 h-3.5 text-pink-500 dark:text-pink-400 shrink-0" />
-            <span className="hidden md:inline font-bold">Mode Aktif: Super Admin (Elevated Privileges)</span>
-            <span className="md:hidden font-bold">Super Admin (Elevated)</span>
+            <span className="hidden md:inline font-bold">Super Admin (Elevated Privileges)</span>
+            <span className="md:hidden font-bold">Super Admin</span>
           </div>
         )}
       </div>
 
-      {/* 2. Sisi Kanan: Action Controls & User Profile (Toggle Bahasa, Toggle Dark Mode, Profil) */}
+      {/* 2. Sisi Kanan: Action Controls & User Profile */}
       <div className="flex items-center gap-2 shrink-0 flex-shrink-0">
-
-        {/* Dropdown Pemilih Bahasa (Language Switcher) */}
+        {/* Dropdown Bahasa */}
         <div className="relative shrink-0" ref={langDropdownRef}>
           <button
             id="btn-language-switcher"
@@ -471,7 +450,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
             <ChevronDown className="w-3 h-3 text-gray-400 shrink-0" />
           </button>
 
-          {/* Dropdown Menu */}
           {isLangDropdownOpen && (
             <div
               id="language-dropdown-menu"
@@ -485,7 +463,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 {language === 'en' ? 'Select Language' : 'Pilih Bahasa'}
               </div>
 
-              {/* ID Option */}
               <button
                 type="button"
                 id="btn-lang-id"
@@ -510,7 +487,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 {language === 'id' && <Check className="w-3.5 h-3.5 text-cyan-500 shrink-0" />}
               </button>
 
-              {/* EN Option */}
               <button
                 type="button"
                 id="btn-lang-en"
@@ -538,7 +514,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
           )}
         </div>
 
-        {/* Tombol Toggle Dark / Light Mode */}
+        {/* Toggle Dark / Light */}
         <div className="flex items-center shrink-0">
           <button
             id="btn-theme-toggle"
@@ -552,7 +528,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
             title={`Mode saat ini: ${isLight ? 'Terang (Light Mode)' : 'Gelap (Dark Mode)'} - Klik untuk beralih`}
           >
             <div className="flex items-center gap-1 px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap">
-              {/* Sun Icon */}
               <div
                 className={`p-1 rounded-full transition-all duration-300 flex items-center justify-center ${
                   isLight
@@ -563,7 +538,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 <Sun className="w-3.5 h-3.5" />
               </div>
 
-              {/* Moon Icon */}
               <div
                 className={`p-1 rounded-full transition-all duration-300 flex items-center justify-center ${
                   !isLight
@@ -577,10 +551,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
           </button>
         </div>
 
-        {/* 1. KONDISI DALAM MODE SUPER ADMIN (activeNav === 'admin'): Tombol Keluar ke Menu Utama (HOME) & Kunci Sesi */}
+        {/* Super Admin Actions */}
         {activeNav === 'admin' && (
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Tombol Eksplisit: Keluar ke Menu Utama (HOME) */}
             <button
               type="button"
               id="btn-topbar-exit-super-admin"
@@ -590,14 +563,13 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                   ? 'bg-cyan-50 border-cyan-300 text-cyan-800 hover:bg-cyan-100 hover:border-cyan-400'
                   : 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/25 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
               }`}
-              title="Keluar ke Menu Utama (HOME) & Reset Status Super Admin ke Staff Operasional"
+              title="Keluar ke Menu Utama (HOME) & Reset Status Super Admin"
             >
               <DoorOpen className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400 shrink-0" />
               <span className="hidden lg:inline">Keluar ke Menu Utama</span>
               <span className="lg:hidden">Menu Utama</span>
             </button>
 
-            {/* Opsi Terpisah: Logout / Kunci Sesi */}
             <button
               type="button"
               id="btn-topbar-lock-super-admin"
@@ -612,7 +584,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
           </div>
         )}
 
-        {/* Contextual Profile Topbar (Otomatis menyesuaikan menu navigasi activeNav & Kasir) */}
+        {/* Contextual Profile Topbar */}
         <div className="relative shrink-0">
           <div
             id="topbar-user-profile"
@@ -628,7 +600,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 : `${contextualProfile.userName} • ${contextualProfile.position} (Klik untuk Detail Profil)`
             }
           >
-            {/* Label Utama (Nama Modul / Nama Karyawan) & Sub-label (Mode Umum / Jabatan Divisi) */}
             <div className="flex flex-col text-right leading-none whitespace-nowrap">
               <span
                 className={`text-xs font-bold leading-tight flex items-center gap-1 justify-end whitespace-nowrap ${
@@ -665,7 +636,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               </div>
             </div>
 
-            {/* Avatar: Siluet SVG standar jika belum di-upload; atau render foto custom jika ada */}
             {activePhoto ? (
               <img
                 src={activePhoto}
@@ -678,7 +648,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               <BlankAvatarSilhouette className="w-7 h-7 rounded-full" iconSize="w-3.5 h-3.5" />
             )}
 
-            {/* Dropdown Chevron Toggle (Membuka Modal Detail Profil Aktif) */}
             <div
               className={`p-1 rounded-full transition shrink-0 ${
                 isLight ? 'text-slate-500' : 'text-gray-400'
@@ -690,7 +659,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
         </div>
       </div>
 
-      {/* Popover / Modal Ringkas: Detail Profil Aktif via React Portal */}
+      {/* Popover / Modal Detail Profil Aktif via Portal */}
       {isDetailModalOpen && typeof document !== 'undefined' && createPortal(
         <div
           id="modal-detail-profil-aktif"
@@ -706,7 +675,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 : 'bg-[#161b22] border-slate-700 text-[#e6edf3]'
             }`}
           >
-            {/* Header Modal */}
             <div className="flex items-center justify-between pb-3.5 border-b border-gray-700/20 dark:border-gray-700/40">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
@@ -733,7 +701,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               </button>
             </div>
 
-            {/* 1. Avatar Besar (Ukuran standar 1:1, 128x128px, object-cover) */}
             <div className="pt-5 pb-3 flex flex-col items-center">
               <div className="relative group">
                 <div
@@ -762,7 +729,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                   )}
                 </div>
 
-                {/* Floating camera trigger shortcut */}
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
@@ -773,7 +739,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 </button>
               </div>
 
-              {/* Nama Profil/Modul aktif & Jabatan */}
               <div className="mt-3.5 text-center w-full px-2">
                 <div className="flex items-center justify-center gap-1.5">
                   {!contextualProfile.isGeneral && (
@@ -813,7 +778,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               </div>
             </div>
 
-            {/* Hidden Input File untuk Upload Foto */}
             <input
               type="file"
               ref={fileInputRef}
@@ -822,10 +786,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               className="hidden"
             />
 
-            {/* 2 & 3. Tombol Aksi: Upload/Ganti Foto, Hapus Foto, Keluar/Kunci Modul */}
             <div className="space-y-2 pt-3 border-t border-gray-700/20 dark:border-gray-700/40">
               <div className="flex items-center gap-2">
-                {/* 2. Tombol Upload / Ganti Foto */}
                 <button
                   type="button"
                   id="btn-upload-profile-photo"
@@ -836,7 +798,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                   <span>{activePhoto ? 'Ganti Foto' : 'Upload Foto'}</span>
                 </button>
 
-                {/* 3a. Tombol Hapus Foto */}
                 <button
                   type="button"
                   id="btn-delete-profile-photo"
@@ -858,7 +819,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 Maksimal 1MB • Otomatis resize 1:1 ke base64 (tersimpan di browser)
               </p>
 
-              {/* Bagian Ringkas: Ubah PIN Modul Ini (Khusus modul ber-password) */}
               {isPasswordProtectedModule && (
                 <div
                   id="section-change-module-pin"
@@ -885,7 +845,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                   </p>
 
                   <form onSubmit={handleUpdateModulePin} className="space-y-2">
-                    {/* Input PIN Lama */}
                     <div className="relative">
                       <input
                         type={showOldPin ? 'text' : 'password'}
@@ -909,7 +868,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                       </button>
                     </div>
 
-                    {/* Input PIN Baru */}
                     <div className="relative">
                       <input
                         type={showNewPin ? 'text' : 'password'}
@@ -936,7 +894,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                       </button>
                     </div>
 
-                    {/* Feedback Pesan */}
                     {pinMessage && (
                       <div
                         className={`flex items-center gap-1.5 text-[11px] font-medium p-2 rounded-xl ${
@@ -954,7 +911,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                       </div>
                     )}
 
-                    {/* Tombol Simpan PIN Baru */}
                     <button
                       type="submit"
                       id="btn-save-module-pin"
@@ -967,9 +923,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 </div>
               )}
 
-              {/* Tombol Aksi Navigasi & Kunci */}
               <div className="pt-2 flex flex-col gap-2">
-                {/* 3a. Tombol Utama: Kembali / Tutup Profil (Hanya menutup modal dan tetap di halaman aktif) */}
                 <button
                   type="button"
                   id="btn-close-profile-modal"
@@ -984,7 +938,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                   <span>Kembali / Tutup Profil</span>
                 </button>
 
-                {/* 3b. Tombol Sekunder: Kunci Modul Ini (Mengunci modul tanpa melempar ke HOME) */}
                 <button
                   type="button"
                   id="btn-lock-current-module"
@@ -1013,13 +966,13 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
         </div>
       )}
 
-      {/* Pop-up Modal Pusat Informasi & SOP */}
+      {/* Pop-up Modal SOP */}
       <SopModal
         isOpen={isSopModalOpen}
         onClose={() => setIsSopModalOpen(false)}
       />
 
-      {/* Pop-up Modal Tentang Sistem & Pengembang */}
+      {/* Pop-up Modal Tentang Sistem */}
       <AboutSystemModal
         isOpen={isAboutModalOpen}
         onClose={() => setIsAboutModalOpen(false)}
@@ -1027,14 +980,14 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
         language={language}
         onOpenSop={() => setIsSopModalOpen(true)}
       />
-      {/* Pop-up Modal Pengaturan Profil Pengguna */}
+
+      {/* Pop-up Modal Pengaturan Profil */}
       <ProfileSettingsModal
         isOpen={isProfileSettingsOpen}
         onClose={() => setIsProfileSettingsOpen(false)}
-        isLight={isLight}
       />
 
-      {/* Modal 1: Konfirmasi Keluar ke Menu Utama (HOME) via Portal */}
+      {/* Modal 1: Konfirmasi Keluar ke Menu Utama */}
       {isExitConfirmOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
           <div
@@ -1081,7 +1034,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
         document.body
       )}
 
-      {/* Modal 2: Konfirmasi Logout / Kunci Sesi Super Admin via Portal */}
+      {/* Modal 2: Konfirmasi Logout Super Admin */}
       {isLockConfirmOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
           <div
@@ -1102,15 +1055,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               Hak akses istimewa akan dikunci total, profil akun diubah kembali menjadi Staff Operasional, dan tampilan dialihkan langsung ke halaman <strong>HOME</strong>.
             </p>
             <div className="flex items-center justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsLockConfirmOpen(false)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
-                  isLight ? 'border-slate-300 hover:bg-slate-100 text-slate-700' : 'border-slate-700 hover:bg-slate-800 text-gray-300'
-                }`}
-              >
-                Batal
-              </button>
               <button
                 type="button"
                 onClick={() => {
