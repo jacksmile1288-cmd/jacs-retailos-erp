@@ -203,7 +203,7 @@ const MainLayout: React.FC = () => {
         <Topbar onOpenMobileMenu={() => setIsMobileMenuOpen(true)} />
       )}
 
-      <div className="flex-1 flex min-h-0 overflow-hidden relative">
+      <div className="flex-1 flex min-h-0 overflow-hidden relative min-w-0">
         {/* Sidebar: hidden only during active fullscreen cashier register */}
         {!isFullscreenCashier && (
           <Sidebar
