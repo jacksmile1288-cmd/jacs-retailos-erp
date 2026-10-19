@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="jOrange" x1="160" y1="20" x2="480" y2="440" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF7A00"/>
+      <stop offset="60%" stop-color="#FF4500"/>
+      <stop offset="100%" stop-color="#C41E00"/>
+    </linearGradient>
+    <linearGradient id="jBlue" x1="60" y1="120" x2="380" y2="460" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0066FF"/>
+      <stop offset="45%" stop-color="#0044CC"/>
+      <stop offset="100%" stop-color="#001866"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0033aa" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <path d="M165 118L445 28C472 20 488 45 470 72L312 405C265 505 130 525 68 440C15 368 45 272 155 272C162 272 165 278 165 285V308C165 315 158 322 152 322C98 322 75 372 108 418C145 470 230 452 268 375L385 125L172 125C158 125 152 118 165 118Z" fill="url(#jOrange)"/>
+  <path d="M380 115C380 115 258 205 240 330C232 388 202 432 150 448C90 466 52 422 62 370C72 322 115 275 160 275C168 275 170 282 170 290V310C170 318 162 325 155 325C125 325 98 350 95 380C90 412 115 432 145 425C180 415 205 380 210 335C225 210 355 125 380 115Z" fill="url(#jBlue)" filter="url(#glow)"/>
+</svg>
