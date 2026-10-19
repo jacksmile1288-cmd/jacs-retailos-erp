@@ -350,7 +350,7 @@ export const HomeModule: React.FC = () => {
 
   return (
     <div id="home-module-container" className="w-full max-w-[1360px] mx-auto flex flex-col space-y-4 xl:space-y-5">
-      {/* 1. DYNAMIC STORE BRANDING & OPERATIONAL HEADER (TANPA TOMBOL GANDA) */}
+      {/* 1. STORE BRANDING & OPERATIONAL HEADER (TANPA TOMBOL GANDA) */}
       <div
         className={`relative overflow-hidden rounded-2xl border p-4 sm:p-5 transition duration-200 flex items-start sm:items-center justify-between gap-4 ${
           isLight
@@ -409,7 +409,7 @@ export const HomeModule: React.FC = () => {
                 >
                   {companyName}
                 </h1>
-                <p className={`text-xs font-normal mt-0.5 line-clamp-2 min-h-[2.5rem] h-[215px] h-[2.5rem] h-[215px] h-[215px] h-[2.5rem] h-[2.5rem] max-w-2xl ${
+                <p className={`text-xs font-normal mt-0.5 line-clamp-2 max-w-2xl ${
                   isLight ? 'text-slate-600' : 'text-slate-300'
                 }`}>
                   {companyAddress}
@@ -420,7 +420,7 @@ export const HomeModule: React.FC = () => {
         })()}
       </div>
 
-      {/* 2. 6 KARTU BAR NEON PRESISI & SIMETRIS 100% */}
+      {/* 2. 6 KARTU BAR NEON PRESISI & SIMETRIS (TINGGI IDENTIK 215PX) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
         {ROLE_MODULES.map((role) => {
           const Icon = role.icon;
@@ -465,7 +465,6 @@ export const HomeModule: React.FC = () => {
 
               {/* Upper Content Group */}
               <div className="w-full flex flex-col space-y-2.5">
-                {/* Header: Icon, Order Badge & Lock Status */}
                 <div className="h-9 flex items-center justify-between w-full">
                   <div className="flex items-center gap-2">
                     <div
@@ -505,7 +504,6 @@ export const HomeModule: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Symmetrical Title & Sub-title Container */}
                 <div className="space-y-1">
                   <h3
                     className="text-base font-bold leading-tight transition-colors truncate"
@@ -515,13 +513,13 @@ export const HomeModule: React.FC = () => {
                   >
                     {divisionInfo.name}
                   </h3>
-                  <p className="text-xs text-slate-400 leading-snug line-clamp-2 min-h-[2.5rem] h-[215px] h-[2.5rem] h-[215px] h-[215px] h-[2.5rem] h-[2.5rem] h-[2.5rem]">
+                  <p className="text-xs text-slate-400 leading-snug line-clamp-2 h-[2.5rem]">
                     {divisionInfo.sub}
                   </p>
                 </div>
               </div>
 
-              {/* Bottom Action Links: Flat baseline alignment */}
+              {/* Bottom Action Links: Selalu sejajar di dasar kartu */}
               <div className="w-full pt-2.5 border-t border-gray-700/30 flex items-center justify-between text-xs mt-auto">
                 <button
                   type="button"
