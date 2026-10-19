@@ -409,7 +409,7 @@ export const HomeModule: React.FC = () => {
                 >
                   {companyName}
                 </h1>
-                <p className={`text-xs font-normal mt-0.5 line-clamp-2 h-[2.5rem] max-w-2xl ${
+                <p className={`text-xs font-normal mt-0.5 line-clamp-2 min-h-[2.5rem] h-[2.5rem] max-w-2xl ${
                   isLight ? 'text-slate-600' : 'text-slate-300'
                 }`}>
                   {companyAddress}
@@ -513,7 +513,7 @@ export const HomeModule: React.FC = () => {
                   >
                     {divisionInfo.name}
                   </h3>
-                  <p className="text-xs text-slate-400 leading-snug line-clamp-2 h-[2.5rem] h-[2.5rem]">
+                  <p className="text-xs text-slate-400 leading-snug line-clamp-2 min-h-[2.5rem] h-[2.5rem] h-[2.5rem]">
                     {divisionInfo.sub}
                   </p>
                 </div>
