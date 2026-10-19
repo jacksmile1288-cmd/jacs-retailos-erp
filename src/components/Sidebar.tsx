@@ -35,9 +35,9 @@ export const Sidebar: React.FC = () => {
     <aside className="w-64 bg-slate-900 border-r border-slate-800 text-slate-200 flex flex-col h-screen select-none shrink-0">
       {/* Brand Header */}
       <div className="p-4 border-b border-slate-800 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center font-black text-white shadow-lg shadow-cyan-500/20 text-lg tracking-wider">
-          J
-        </div>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden bg-[#0d1117]/80 border border-[#30363d]/60 p-1 shadow-md">
+            <img src="/Logo-JacS-Enterprise.png" alt="JacS Enterprise Logo" className="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(0,82,255,0.4)]" />
+          </div>
         <div>
           <div className="font-bold text-white text-base leading-tight tracking-wide flex items-center gap-1.5">
             JacS RetailOS
