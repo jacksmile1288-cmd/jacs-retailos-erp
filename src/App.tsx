@@ -61,7 +61,7 @@ const AppContent: React.FC = () => {
       {/* Kontainer Konten Kanan: Fleksibel, melebar penuh, dan scroll mandiri */}
       <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden">
         <Topbar />
-        <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 min-w-0 h-full overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           {renderModule()}
         </main>
       </div>
