@@ -17,6 +17,8 @@ import {
   ChevronDown,
   Check,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Shield,
   LogOut,
   Sparkles,
@@ -92,6 +94,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     lockModule,
     getModulePin,
     updateModulePin,
+    isSidebarCollapsed,
+    toggleSidebar,
   } = useApp();
 
   const currentUser = contextCurrentUser !== undefined ? contextCurrentUser : activeUser;
@@ -359,6 +363,36 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
             <Menu className="w-5 h-5 shrink-0" />
           </button>
         )}
+
+        {/* Global Sidebar Toggle Button (Desktop & Tablet) */}
+        <button
+          type="button"
+          id="btn-global-sidebar-toggle"
+          onClick={toggleSidebar}
+          className={`hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs ${
+            isSidebarCollapsed
+              ? isLight
+                ? 'bg-cyan-50 text-cyan-800 border-cyan-300 hover:bg-cyan-100 shadow-sm'
+                : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 hover:bg-cyan-500/30 shadow-[0_0_10px_rgba(6,182,212,0.3)]'
+              : isLight
+              ? 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+              : 'bg-slate-800/80 text-gray-300 border-slate-700 hover:text-white hover:bg-slate-700'
+          }`}
+          title={isSidebarCollapsed ? 'Buka Menu Sidebar (Ctrl + B)' : 'Tutup Sidebar / Layar Penuh (Ctrl + B)'}
+          aria-label="Toggle Sidebar"
+        >
+          {isSidebarCollapsed ? (
+            <PanelLeftOpen className="w-4 h-4 text-cyan-500 shrink-0" />
+          ) : (
+            <PanelLeftClose className="w-4 h-4 text-slate-400 hover:text-cyan-400 shrink-0" />
+          )}
+          <span className="font-mono text-[11px] whitespace-nowrap">
+            {isSidebarCollapsed ? 'Buka Menu' : 'Layar Penuh'}
+          </span>
+          <kbd className="hidden xl:inline-block px-1.5 py-0.2 rounded text-[9px] font-mono bg-black/10 dark:bg-white/10 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700">
+            Ctrl+B
+          </kbd>
+        </button>
 
         {/* Jam Digital Realtime */}
         <div

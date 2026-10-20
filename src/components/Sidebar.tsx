@@ -89,6 +89,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
     unlockModule,
     lockModule,
     getModulePin,
+    isSidebarCollapsed,
   } = useApp();
   const [hoveredNavId, setHoveredNavId] = useState<string | null>(null);
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
@@ -405,11 +406,15 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
 
       <aside
         id="app-sidebar"
-        className={`fixed top-0 lg:top-14 bottom-0 left-0 z-30 w-64 md:w-72 border-r flex flex-col transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 lg:top-14 bottom-0 left-0 z-30 border-r flex flex-col transition-all duration-300 ease-in-out ${
           isLight
             ? 'bg-white border-slate-200 text-slate-900 shadow-sm'
             : 'bg-[#161b22] border-[#30363d] text-[#e6edf3]'
-        } ${isOpenMobile ? 'translate-x-0 z-50 top-0' : '-translate-x-full'}`}
+        } ${
+          isSidebarCollapsed
+            ? 'w-0 -translate-x-full overflow-hidden opacity-0 pointer-events-none'
+            : 'w-64 md:w-72 lg:translate-x-0 opacity-100 pointer-events-auto'
+        } ${isOpenMobile ? 'translate-x-0 z-50 top-0 w-64 md:w-72 opacity-100 pointer-events-auto' : ''}`}
       >
         {/* 2. Brand Header: JacS RetailOS ERP (Sidebar Kiri Atas) */}
         <div
@@ -434,7 +439,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
         </div>
 
         {/* 1. Navigation Menu List: Clean Primary Modules or Super Admin Console */}
-        <div className="flex-1 overflow-y-auto px-2.5 py-2 xl:py-2.5 space-y-1">
+        <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-1.5">
           {activeNav === 'admin' ? (
             /* ========================================================
                SUPER ADMIN CONSOLE NAVIGATION FOCUS
@@ -491,7 +496,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                     onMouseEnter={() => setHoveredNavId(item.id)}
                     onMouseLeave={() => setHoveredNavId(null)}
                     style={isLight || isActive ? undefined : navStyle}
-                    className={`w-full group flex items-center justify-between px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl text-left transition-all duration-150 ease-out cursor-pointer ${
+                    className={`w-full group flex items-center justify-between py-2.5 px-3.5 rounded-lg text-left transition-all duration-150 ease-out cursor-pointer gap-3 ${
                       isActive
                         ? isLight
                           ? 'border-l-4 border-pink-600 bg-pink-100 text-pink-900 shadow-sm font-bold'
@@ -501,7 +506,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                         : 'text-slate-200 dark:text-slate-200 hover:bg-slate-800 hover:text-white font-semibold'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 xl:gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 xl:gap-3 min-w-0 pr-2">
                       <div
                         className={`w-6 h-6 xl:w-6.5 xl:h-6.5 rounded-lg flex items-center justify-center transition shrink-0 ${
                           isActive
@@ -551,7 +556,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
 
                     {Boolean(item.badge) && (
                       <span
-                        className={`text-[9px] xl:text-[10px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                        className={`ml-auto text-[9px] xl:text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 whitespace-nowrap ${
                           isActive
                             ? isLight
                               ? 'bg-pink-200 text-pink-900 border-pink-400'
@@ -608,7 +613,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                     onMouseEnter={() => setHoveredNavId(item.id)}
                     onMouseLeave={() => setHoveredNavId(null)}
                     style={isLight || isActive ? undefined : navStyle}
-                    className={`w-full group flex items-center justify-between px-2.5 py-1.5 xl:px-3 xl:py-2 rounded-xl text-left transition-all duration-150 ease-out cursor-pointer ${
+                    className={`w-full group flex items-center justify-between py-2.5 px-3.5 rounded-lg text-left transition-all duration-150 ease-out cursor-pointer gap-3 ${
                       isActive
                         ? isLight
                           ? 'border-l-4 border-cyan-600 bg-cyan-100 text-cyan-900 shadow-sm font-bold'
@@ -618,7 +623,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                         : 'text-slate-200 dark:text-slate-200 hover:bg-slate-800 hover:text-white font-semibold'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 xl:gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 xl:gap-3 min-w-0 pr-2">
                       {/* Icon with Individual Glow */}
                       <div
                         className={`w-6 h-6 xl:w-6.5 xl:h-6.5 rounded-lg flex items-center justify-center transition shrink-0 ${
@@ -669,7 +674,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
+                    <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                       {/* Indikator Gembok Kecil */}
                       {isModuleLockedForUser(item.id) && (
                         <span
@@ -688,7 +693,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                       {item.id === 'executive' ? (
                         totalExecutivePending > 0 && Boolean(item.badge) ? (
                           <span
-                            className={`text-[10px] xl:text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                            className={`text-[10px] xl:text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 whitespace-nowrap ${
                               isActive
                                 ? isLight
                                   ? 'bg-cyan-200/80 border-cyan-400 text-cyan-900'
@@ -704,7 +709,7 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
                       ) : (
                         Boolean(item.badge) && item.badge !== 0 && item.badge !== '0' && (
                           <span
-                            className={`text-[10px] xl:text-xs font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                            className={`text-[10px] xl:text-xs font-bold px-2 py-0.5 rounded-full border shrink-0 whitespace-nowrap ${
                               isActive
                                 ? isLight
                                   ? 'bg-cyan-200/80 border-cyan-400 text-cyan-900'

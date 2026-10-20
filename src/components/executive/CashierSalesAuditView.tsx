@@ -22,6 +22,7 @@ import {
   Layers,
   Sparkles,
   FileText,
+  X,
 } from 'lucide-react';
 
 interface CashierSalesAuditViewProps {
@@ -712,20 +713,20 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
             </p>
           </div>
 
-          {/* Action Buttons: Unduh TXT, Export Excel & Print */}
-          <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Action Buttons: Unduh TXT, Export Excel & Print (Spacious Ergonomic Spacing) */}
+          <div className="flex items-center gap-3 sm:gap-3.5 flex-wrap">
             {/* Tombol Biru Modern: Unduh TXT Ringan (.txt) */}
             <button
               type="button"
               onClick={downloadDotMatrixTxt}
               disabled={aggregatedItems.length === 0}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer border ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer border whitespace-nowrap shrink-0 shadow-sm ${
                 isLight
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-sm disabled:opacity-50'
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600 disabled:opacity-50'
                   : 'bg-blue-600 hover:bg-blue-500 text-white font-bold border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.35)] disabled:opacity-50'
               }`}
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-4 h-4 shrink-0" />
               <span>Unduh TXT Ringan (.txt)</span>
             </button>
 
@@ -733,13 +734,13 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
               type="button"
               onClick={exportToExcel}
               disabled={aggregatedItems.length === 0}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer border ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer border whitespace-nowrap shrink-0 shadow-sm ${
                 isLight
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm disabled:opacity-50'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 disabled:opacity-50'
                   : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)] disabled:opacity-50'
               }`}
             >
-              <FileSpreadsheet className="w-4 h-4" />
+              <FileSpreadsheet className="w-4 h-4 shrink-0" />
               <span>Unduh Excel (.xlsx)</span>
             </button>
 
@@ -747,13 +748,13 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
               type="button"
               onClick={handlePrint}
               disabled={aggregatedItems.length === 0}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer border ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer border whitespace-nowrap shrink-0 shadow-sm ${
                 isLight
-                  ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300 shadow-sm disabled:opacity-50'
+                  ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300 disabled:opacity-50'
                   : 'bg-[#21262d] hover:bg-[#30363d] text-slate-200 border-[#30363d] disabled:opacity-50'
               }`}
             >
-              <Printer className="w-4 h-4" />
+              <Printer className="w-4 h-4 shrink-0" />
               <span>Cetak Rekapitulasi</span>
             </button>
           </div>
@@ -926,16 +927,16 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
             </button>
           </div>
 
-          {/* Quick Preset Buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-[#8b949e] font-semibold mr-1">Tombol Cepat:</span>
+          {/* Quick Preset Buttons (Ergonomic Spacing) */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-xs text-[#8b949e] font-semibold whitespace-nowrap">Tombol Cepat:</span>
             <button
               type="button"
               onClick={() => applyPreset('THIS_WEEK')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer whitespace-nowrap ${
                 filterMode === 'DATE_RANGE' && startDate === '2026-10-19' && endDate === '2026-10-25'
                   ? isLight
-                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs'
                     : 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
                   : isLight
                   ? 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
@@ -948,10 +949,10 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
             <button
               type="button"
               onClick={() => applyPreset('THIS_MONTH')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer whitespace-nowrap ${
                 filterMode === 'MONTH_YEAR' && selectedMonth === 10 && selectedYear === 2026
                   ? isLight
-                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs'
                     : 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
                   : isLight
                   ? 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
@@ -964,10 +965,10 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
             <button
               type="button"
               onClick={() => applyPreset('TODAY')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer whitespace-nowrap ${
                 filterMode === 'DATE_RANGE' && startDate === '2026-10-20' && endDate === '2026-10-20'
                   ? isLight
-                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                    ? 'bg-emerald-50 border-emerald-500 text-emerald-700 shadow-xs'
                     : 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
                   : isLight
                   ? 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
@@ -980,16 +981,16 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
         </div>
 
         {/* Inputs Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center pt-2 border-t border-slate-700/20">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pt-3 border-t border-slate-700/20">
           {/* Left Inputs depending on filterMode */}
           {filterMode === 'MONTH_YEAR' ? (
-            <div className="md:col-span-7 flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3.5 flex-wrap">
               <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-[#8b949e]">Pilih Bulan:</label>
+                <label className="text-xs font-bold text-[#8b949e] whitespace-nowrap">Pilih Bulan:</label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition cursor-pointer outline-none focus:ring-2 focus:ring-emerald-500 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer outline-none focus:ring-2 focus:ring-emerald-500 ${
                     isLight
                       ? 'bg-slate-50 border-slate-300 text-slate-900'
                       : 'bg-[#0d1117] border-[#30363d] text-white'
@@ -1004,11 +1005,11 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-[#8b949e]">Tahun:</label>
+                <label className="text-xs font-bold text-[#8b949e] whitespace-nowrap">Tahun:</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition cursor-pointer outline-none focus:ring-2 focus:ring-emerald-500 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer outline-none focus:ring-2 focus:ring-emerald-500 ${
                     isLight
                       ? 'bg-slate-50 border-slate-300 text-slate-900'
                       : 'bg-[#0d1117] border-[#30363d] text-white'
@@ -1022,21 +1023,21 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
                 </select>
               </div>
 
-              <span className={`text-xs px-2.5 py-1 rounded-lg border font-mono font-bold ${
+              <span className={`text-xs px-3 py-1.5 rounded-lg border font-mono font-bold whitespace-nowrap ${
                 isLight ? 'bg-slate-100 text-slate-700 border-slate-200' : 'bg-[#21262d] text-slate-300 border-[#30363d]'
               }`}>
                 {activeStart} s/d {activeEnd}
               </span>
             </div>
           ) : (
-            <div className="md:col-span-7 flex items-center gap-2.5 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-bold text-[#8b949e]">Dari Tanggal:</label>
+            <div className="flex items-center gap-3.5 flex-wrap">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-[#8b949e] whitespace-nowrap">Dari Tanggal:</label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition outline-none focus:ring-2 focus:ring-emerald-500 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition outline-none focus:ring-2 focus:ring-emerald-500 ${
                     isLight
                       ? 'bg-slate-50 border-slate-300 text-slate-900'
                       : 'bg-[#0d1117] border-[#30363d] text-white'
@@ -1044,13 +1045,13 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
                 />
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-bold text-[#8b949e]">Sampai Tanggal:</label>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-[#8b949e] whitespace-nowrap">Sampai Tanggal:</label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition outline-none focus:ring-2 focus:ring-emerald-500 ${
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition outline-none focus:ring-2 focus:ring-emerald-500 ${
                     isLight
                       ? 'bg-slate-50 border-slate-300 text-slate-900'
                       : 'bg-[#0d1117] border-[#30363d] text-white'
@@ -1061,7 +1062,7 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
           )}
 
           {/* Search Barcode / Product Name */}
-          <div className="md:col-span-5 relative">
+          <div className="relative w-full lg:w-80 shrink-0">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8b949e]" />
             <input
               type="text"
@@ -1078,9 +1079,9 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
               >
-                ×
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>

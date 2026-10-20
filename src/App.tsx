@@ -14,6 +14,7 @@ import {
   RefreshCw,
   LogIn,
   ArrowRight,
+  PanelLeftOpen,
 } from 'lucide-react';
 
 // Code-splitting: Muat modul hanya saat diklik (On-Demand Lazy Loading)
@@ -77,8 +78,31 @@ const MainLayout: React.FC = () => {
     isSuperAdminAuthenticated,
     setIsSuperAdminAuthenticated,
     showToast,
+    isSidebarCollapsed,
+    toggleSidebar,
   } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Shortcut Keyboard Global: [Ctrl + B] / [Cmd + B] untuk toggle sidebar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [toggleSidebar]);
 
   const isFullscreenCashier = activeNav === 'pos' && isCashierWorkspaceActive;
   const isIsolatedAdmin = activeNav === 'admin';
@@ -247,17 +271,40 @@ const MainLayout: React.FC = () => {
           />
         )}
 
-        {/* Main Content Viewport */}
+        {/* Main Content Viewport: Otomatis Melebar 100% Penuh Saat Sidebar Ditutup */}
         <main
-          className={`flex-1 min-w-0 ${
+          className={`flex-1 min-w-0 transition-all duration-300 ease-in-out ${
             !isFullscreenCashier
-              ? 'lg:ml-64 md:lg:ml-72 pt-4 pb-12 px-4 sm:px-6 md:px-8 overflow-y-auto overflow-x-hidden flex flex-col'
-              : 'lg:ml-0 p-0 sm:p-2 overflow-y-auto overflow-x-hidden'
+              ? isSidebarCollapsed
+                ? 'ml-0 pt-4 pb-12 px-4 sm:px-6 md:px-8 overflow-y-auto overflow-x-hidden flex flex-col w-full max-w-full'
+                : 'lg:ml-64 md:lg:ml-72 pt-4 pb-12 px-4 sm:px-6 md:px-8 overflow-y-auto overflow-x-hidden flex flex-col'
+              : 'lg:ml-0 p-0 sm:p-2 overflow-y-auto overflow-x-hidden w-full max-w-full'
           } max-w-full`}
         >
           <ModuleRenderer activeTab={activeNav} />
         </main>
       </div>
+
+      {/* Tombol Floating Toggle Sidebar di Tepi Kiri Layar saat Sidebar Ditutup */}
+      {isSidebarCollapsed && !isFullscreenCashier && (
+        <button
+          type="button"
+          id="btn-floating-sidebar-toggle"
+          onClick={toggleSidebar}
+          className={`fixed left-0 top-20 z-40 p-2 sm:p-2.5 rounded-r-xl border border-l-0 shadow-xl transition-all duration-200 group cursor-pointer flex items-center gap-1.5 animate-fadeIn ${
+            theme === 'light'
+              ? 'bg-white text-slate-700 hover:bg-cyan-50 hover:text-cyan-700 border-slate-300 hover:border-cyan-400 shadow-slate-300/50'
+              : 'bg-[#161b22] text-slate-200 hover:bg-[#21262d] hover:text-cyan-400 border-[#30363d] hover:border-cyan-500/50 shadow-[0_4px_20px_rgba(0,0,0,0.5)]'
+          }`}
+          title="Buka Navigasi Menu [Ctrl + B]"
+          aria-label="Buka Navigasi Menu"
+        >
+          <PanelLeftOpen className="w-4 h-4 text-cyan-500 group-hover:scale-110 transition-transform" />
+          <span className="text-[11px] font-bold hidden sm:group-hover:inline transition-opacity duration-200 pr-1">
+            Buka Menu (Ctrl+B)
+          </span>
+        </button>
+      )}
 
       {/* Global Modals */}
       <PinAuthModal />
