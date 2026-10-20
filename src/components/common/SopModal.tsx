@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../../context/AppContext';
 import { getReactiveNeonGlowStyle } from '../../utils/neonGlow';
 import { DIVISIONS_TRANSLATIONS } from '../../utils/translations';
@@ -247,10 +248,10 @@ export const SopModal: React.FC<SopModalProps> = ({ isOpen, onClose }) => {
     );
   });
 
-  return (
+  const modalContent = (
     <div
       id="sop-modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-md animate-fadeIn"
       onClick={onClose}
     >
       <div
@@ -578,4 +579,8 @@ export const SopModal: React.FC<SopModalProps> = ({ isOpen, onClose }) => {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };

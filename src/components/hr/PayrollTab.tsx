@@ -799,11 +799,19 @@ Terbilang: ${formatTerbilang(item.takeHomePay)}
                     {/* 1. Staf & NIP */}
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={emp.avatar}
-                          alt={emp.name}
-                          className="w-9 h-9 rounded-full object-cover border border-[#0052FF]/30 shrink-0"
-                        />
+                        {emp.avatarUrl || emp.avatar ? (
+                          <img
+                            src={emp.avatarUrl || emp.avatar || ''}
+                            alt={emp.name}
+                            className="w-9 h-9 rounded-full object-cover border border-[#0052FF]/30 shrink-0"
+                          />
+                        ) : (
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center border border-[#0052FF]/30 shrink-0 ${
+                            isLight ? 'bg-slate-200 text-slate-500' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            <Users className="w-4 h-4" />
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <div
                             className={`font-bold truncate ${

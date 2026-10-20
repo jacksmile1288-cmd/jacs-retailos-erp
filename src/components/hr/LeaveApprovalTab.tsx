@@ -86,13 +86,14 @@ export const LeaveApprovalTab: React.FC<LeaveApprovalTabProps> = ({
 
   const handleApprove = (ticket: LeaveRequest) => {
     setProcessingId(ticket.id);
+    const approver = activeUser ? `${activeUser.name} (${activeUser.role})` : 'HR Approver';
     const note =
       notesMap[ticket.id] ||
       (isEn
-        ? `Approved by ${activeUser.name} (${activeUser.role}). Shift adjustments coordinated.`
-        : `Disetujui oleh ${activeUser.name} (${activeUser.role}). Kuota cuti disesuaikan & koordinasi shift selesai.`);
+        ? `Approved by ${approver}. Shift adjustments coordinated.`
+        : `Disetujui oleh ${approver}. Kuota cuti disesuaikan & koordinasi shift selesai.`);
     try {
-      approveLeaveRequest(ticket.id, `${activeUser.name} (${activeUser.role})`, note);
+      approveLeaveRequest(ticket.id, approver, note);
     } finally {
       setProcessingId(null);
     }
@@ -100,13 +101,14 @@ export const LeaveApprovalTab: React.FC<LeaveApprovalTabProps> = ({
 
   const handleReject = (ticket: LeaveRequest) => {
     setProcessingId(ticket.id);
+    const approver = activeUser ? `${activeUser.name} (${activeUser.role})` : 'HR Approver';
     const note =
       notesMap[ticket.id] ||
       (isEn
-        ? `Rejected by ${activeUser.name} (${activeUser.role}): operational peak coverage required.`
-        : `Ditolak oleh ${activeUser.name} (${activeUser.role}): kebutuhan operasional padat & jadwal bentrok.`);
+        ? `Rejected by ${approver}: operational peak coverage required.`
+        : `Ditolak oleh ${approver}: kebutuhan operasional padat & jadwal bentrok.`);
     try {
-      rejectLeaveRequest(ticket.id, `${activeUser.name} (${activeUser.role})`, note);
+      rejectLeaveRequest(ticket.id, approver, note);
     } finally {
       setProcessingId(null);
     }
@@ -115,7 +117,7 @@ export const LeaveApprovalTab: React.FC<LeaveApprovalTabProps> = ({
   const handleApproveAllPendingLeaves = () => {
     if (pendingLeaves.length === 0) return;
 
-    const approverName = `${activeUser.name} (${activeUser.role})`;
+    const approverName = activeUser ? `${activeUser.name} (${activeUser.role})` : 'HR Approver';
     const count = pendingLeaves.length;
 
     // Setujui seluruh pengajuan cuti pending sekaligus dan kurangi kuota cuti karyawan terkait

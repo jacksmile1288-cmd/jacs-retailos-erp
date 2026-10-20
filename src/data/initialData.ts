@@ -2340,13 +2340,13 @@ export const INITIAL_INVOICES_DUE: import('../types').InvoiceDue[] = [
 ];
 
 export const DEFAULT_BUSINESS_PROFILE: import('../types').BusinessEntityProfile = {
-  name: 'KHANSA SWALAYAN',
+  name: 'JacS Retail & Enterprise Group',
   category: 'Ritel Modern & Multi-Industry',
-  address: 'Jl. BERUA RAYA Komp Bumi Daya Indah, Daya, Makassar',
+  address: 'Jl. Jenderal Sudirman Kav. 52-53, SCBD, Jakarta Selatan 12190',
   licenseNumber: 'NIB: 9120003819201 / NPWP: 01.345.678.9-012.000',
   phone: '(021) 515-8888 / 0812-8888-9999',
   email: 'official@jacs-retailos.id',
-  logoUrl: '/logo.png',
+  logoUrl: '/LOGO-removebg-preview.png',
   website: 'https://jacs-retailos.id',
   headerNote: 'Unified Retail Operating System & Enterprise Management',
   footerNote: 'Terima kasih atas kunjungan & kepercayaan Anda berbelanja bersama kami.',
