@@ -39,6 +39,7 @@ import {
 import { SopModal } from './common/SopModal';
 import { AboutSystemModal } from './common/AboutSystemModal';
 import { ProfileSettingsModal } from './common/ProfileSettingsModal';
+import { TelemetryBar } from './TelemetryBar';
 
 // Icon SVG Siluet Avatar Kosong / Blank (tanpa foto, tanpa inisial sembarangan)
 const BlankAvatarSilhouette: React.FC<{
@@ -372,65 +373,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
           <span className="whitespace-nowrap font-medium">{currentTime || '00:00:00'}</span>
         </div>
 
-        {/* Indikator Status Koneksi & Cache (Online / Offline Mode) */}
-        {isOnline ? (
-          <div
-            id="system-online-badge"
-            className={`flex items-center gap-1.5 sm:gap-2 rounded-full px-2 sm:px-2.5 py-1 text-xs font-semibold border whitespace-nowrap transition-all duration-300 ${
-              isLight
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm'
-                : 'bg-emerald-950/60 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(34,197,94,0.35)]'
-            }`}
-            title="Sistem Terhubung ke Cloud Database"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className={`relative inline-flex rounded-full h-2 w-2 bg-emerald-500 ${isLight ? '' : 'drop-shadow-[0_0_8px_rgba(34,197,94,0.9)] animate-pulse'}`}></span>
-            </span>
-            <span className={`font-bold tracking-wide flex items-center gap-1 text-[11px] whitespace-nowrap ${isLight ? 'text-emerald-700' : 'text-emerald-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.9)]'}`}>
-              <Wifi className="w-3 h-3 shrink-0" />
-              <span>ONLINE (Cloud Connected)</span>
-            </span>
-            {offlineQueue.length > 0 && (
-              <button
-                type="button"
-                id="btn-topbar-manual-sync"
-                onClick={async () => {
-                  const res = await syncOfflineTransactions();
-                  showToast(res.message);
-                }}
-                className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-900 hover:bg-amber-400 transition cursor-pointer flex items-center gap-1 shadow-xs"
-                title="Klik untuk menyinkronkan transaksi offline sekarang ke Cloud"
-              >
-                <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-                <span>Sinkronkan Sekarang (Sync Cloud) ({offlineQueue.length})</span>
-              </button>
-            )}
-          </div>
-        ) : (
-          <div
-            id="system-offline-badge"
-            className={`flex items-center gap-1.5 sm:gap-2 rounded-full px-2.5 sm:px-3 py-1 text-xs font-semibold border whitespace-nowrap transition-all duration-300 animate-pulse ${
-              isLight
-                ? 'bg-amber-50 border-amber-400 text-amber-900 shadow-sm'
-                : 'bg-amber-950/70 border-amber-500/60 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.35)]'
-            }`}
-            title="Koneksi Terputus: Transaksi disimpan ke Local Storage & Struk tetap dapat dicetak"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500 animate-ping"></span>
-            </span>
-            <span className="font-black tracking-wide flex items-center gap-1 text-[11px] whitespace-nowrap text-amber-500 dark:text-amber-300">
-              <WifiOff className="w-3.5 h-3.5 shrink-0" />
-              <span>OFFLINE MODE (Local Storage Active)</span>
-            </span>
-            {offlineQueue.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-amber-500 text-slate-950">
-                [ {offlineQueue.length} Transaksi Tertunda ]
-              </span>
-            )}
-          </div>
-        )}
+        {/* Indikator Status Koneksi & Cache (Online / Offline Mode via TelemetryBar) */}
+        <TelemetryBar isLight={isLight} />
 
         {/* Indikator Status Mode Super Admin (Elevated Privileges) */}
         {activeNav === 'admin' && (

@@ -1496,10 +1496,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {}
   };
 
-  // Browser online & offline listeners
+  // Browser online & offline listeners with heartbeat ping
   useEffect(() => {
+    const checkHeartbeat = async () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setIsOnline(false);
+        return;
+      }
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        await fetch(`/?heartbeat=${Date.now()}`, {
+          method: 'HEAD',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        setIsOnline(true);
+      } catch {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          setIsOnline(false);
+        } else {
+          setIsOnline(true);
+        }
+      }
+    };
+
     const handleOnline = () => {
       setIsOnline(true);
+      checkHeartbeat();
       // Ketika event window 'online' terpicu, jalankan fungsi syncOfflineTransactions() secara otomatis di latar belakang
       try {
         const raw = localStorage.getItem('jacs_offline_queue');
@@ -1524,9 +1549,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Initial heartbeat probe
+    checkHeartbeat();
+
+    // Periodic heartbeat every 30 seconds
+    const heartbeatInterval = setInterval(checkHeartbeat, 30000);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(heartbeatInterval);
     };
   }, []);
 
