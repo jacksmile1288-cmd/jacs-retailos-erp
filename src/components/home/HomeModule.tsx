@@ -893,3 +893,5 @@ export const HomeModule: React.FC = () => {
     </div>
   );
 };
+
+export default HomeModule;

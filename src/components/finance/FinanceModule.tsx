@@ -1419,3 +1419,5 @@ export const FinanceModule: React.FC = () => {
     </div>
   );
 };
+
+export default FinanceModule;

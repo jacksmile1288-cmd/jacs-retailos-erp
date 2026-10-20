@@ -1,17 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Topbar } from './components/Topbar';
 import { Sidebar } from './components/Sidebar';
-import { HomeModule } from './components/home/HomeModule';
-import { PosModule } from './components/pos/PosModule';
-import { DashboardModule } from './components/dashboard/DashboardModule';
-import { MasterDataModule } from './components/master/MasterDataModule';
-import { ExecutiveModule } from './components/executive/ExecutiveModule';
-import { PurchasingModule } from './components/purchasing/PurchasingModule';
-import { FinanceModule } from './components/finance/FinanceModule';
-import { WarehouseModule } from './components/warehouse/WarehouseModule';
-import { HrModule } from './components/hr/HrModule';
-import { SuperAdminModule } from './components/admin/SuperAdminModule';
 import { PinAuthModal } from './components/pos/PinAuthModal';
 import { ReceiptModal } from './components/pos/ReceiptModal';
 import {
@@ -25,6 +15,51 @@ import {
   LogIn,
   ArrowRight,
 } from 'lucide-react';
+
+// Code-splitting: Muat modul hanya saat diklik (On-Demand Lazy Loading)
+const HomeModule = lazy(() => import('./components/home/HomeModule'));
+const PosModule = lazy(() => import('./components/pos/PosModule'));
+const DashboardModule = lazy(() => import('./components/dashboard/DashboardModule'));
+const ExecutiveModule = lazy(() => import('./components/executive/ExecutiveModule'));
+const FinanceModule = lazy(() => import('./components/finance/FinanceModule'));
+const PurchasingModule = lazy(() => import('./components/purchasing/PurchasingModule'));
+const WarehouseModule = lazy(() => import('./components/warehouse/WarehouseModule'));
+const HrModule = lazy(() => import('./components/hr/HrModule'));
+const MasterDataModule = lazy(() => import('./components/master/MasterDataModule'));
+const SuperAdminModule = lazy(() => import('./components/admin/SuperAdminModule'));
+
+// Fallback spinner saat modul sedang diunduh/dimuat
+const ModuleLoadingFallback: React.FC = () => (
+  <div className="flex-1 flex flex-col items-center justify-center p-12 min-h-[350px] text-center select-none">
+    <div className="relative flex items-center justify-center mb-4">
+      <div className="w-12 h-12 rounded-full border-2 border-cyan-500/20 border-t-cyan-400 animate-spin" />
+      <div className="absolute w-6 h-6 rounded-full bg-cyan-500/10 animate-pulse" />
+    </div>
+    <div className="text-sm font-bold text-cyan-400 tracking-wide flex items-center gap-2">
+      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping inline-block" />
+      <span>Memuat modul...</span>
+    </div>
+    <p className="text-[11px] text-gray-500 mt-1 font-mono">JacS RetailOS ERP Enterprise</p>
+  </div>
+);
+
+// Bungkus render modul dengan Suspense
+function ModuleRenderer({ activeTab }: { activeTab: string }) {
+  return (
+    <Suspense fallback={<ModuleLoadingFallback />}>
+      {activeTab === 'home' && <HomeModule />}
+      {activeTab === 'pos' && <PosModule />}
+      {activeTab === 'dashboard' && <DashboardModule />}
+      {activeTab === 'executive' && <ExecutiveModule />}
+      {activeTab === 'finance' && <FinanceModule />}
+      {activeTab === 'purchasing' && <PurchasingModule />}
+      {activeTab === 'warehouse' && <WarehouseModule />}
+      {activeTab === 'hr' && <HrModule />}
+      {activeTab === 'master-data' && <MasterDataModule />}
+      {activeTab === 'admin' && <SuperAdminModule />}
+    </Suspense>
+  );
+}
 
 const MainLayout: React.FC = () => {
   const {
@@ -220,16 +255,7 @@ const MainLayout: React.FC = () => {
               : 'lg:ml-0 p-0 sm:p-2 overflow-y-auto overflow-x-hidden'
           } max-w-full`}
         >
-          {activeNav === 'home' && <HomeModule />}
-          {activeNav === 'pos' && <PosModule />}
-          {activeNav === 'dashboard' && <DashboardModule />}
-          {activeNav === 'executive' && <ExecutiveModule />}
-          {activeNav === 'finance' && <FinanceModule />}
-          {activeNav === 'purchasing' && <PurchasingModule />}
-          {activeNav === 'warehouse' && <WarehouseModule />}
-          {activeNav === 'hr' && <HrModule />}
-          {activeNav === 'master-data' && <MasterDataModule />}
-          {activeNav === 'admin' && <SuperAdminModule />}
+          <ModuleRenderer activeTab={activeNav} />
         </main>
       </div>
 

@@ -1237,3 +1237,5 @@ export const DashboardModule: React.FC = () => {
     </div>
   );
 };
+
+export default DashboardModule;

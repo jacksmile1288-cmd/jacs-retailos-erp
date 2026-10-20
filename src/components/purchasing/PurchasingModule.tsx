@@ -2476,3 +2476,5 @@ export const PurchasingModule: React.FC = () => {
     </div>
   );
 };
+
+export default PurchasingModule;

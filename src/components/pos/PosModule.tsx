@@ -6758,3 +6758,5 @@ export const PosModule: React.FC = () => {
     </div>
   );
 };
+
+export default PosModule;

@@ -1194,3 +1194,5 @@ export const ExecutiveModule: React.FC = () => {
     </div>
   );
 };
+
+export default ExecutiveModule;

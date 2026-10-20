@@ -7568,3 +7568,5 @@ export const MasterDataModule: React.FC = () => {
     </div>
   );
 };
+
+export default MasterDataModule;
