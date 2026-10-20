@@ -1042,10 +1042,11 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition outline-none focus:ring-2 focus:ring-emerald-500 ${
+                  style={{ colorScheme: isLight ? 'light' : 'dark' }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer dark:[color-scheme:dark] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 ${
                     isLight
-                      ? 'bg-slate-50 border-slate-300 text-slate-900'
-                      : 'bg-[#0d1117] border-[#30363d] text-white'
+                      ? 'bg-slate-50 border-slate-300 text-slate-900 [color-scheme:light]'
+                      : 'bg-[#0d1117] border-[#30363d] text-white [color-scheme:dark]'
                   }`}
                 />
               </div>
@@ -1056,10 +1057,11 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition outline-none focus:ring-2 focus:ring-emerald-500 ${
+                  style={{ colorScheme: isLight ? 'light' : 'dark' }}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer dark:[color-scheme:dark] [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-80 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 ${
                     isLight
-                      ? 'bg-slate-50 border-slate-300 text-slate-900'
-                      : 'bg-[#0d1117] border-[#30363d] text-white'
+                      ? 'bg-slate-50 border-slate-300 text-slate-900 [color-scheme:light]'
+                      : 'bg-[#0d1117] border-[#30363d] text-white [color-scheme:dark]'
                   }`}
                 />
               </div>
