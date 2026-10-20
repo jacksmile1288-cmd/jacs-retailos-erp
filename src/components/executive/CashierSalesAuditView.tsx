@@ -713,49 +713,54 @@ export const CashierSalesAuditView: React.FC<CashierSalesAuditViewProps> = ({
             </p>
           </div>
 
-          {/* Action Buttons: Unduh TXT, Export Excel & Print (Spacious Ergonomic Spacing) */}
-          <div className="flex items-center gap-3 sm:gap-3.5 flex-wrap">
-            {/* Tombol Biru Modern: Unduh TXT Ringan (.txt) */}
+          {/* Action Buttons: TXT Ringan, Excel & Cetak Rekap (Kompak Sejajar 1 Baris) */}
+          <div className="flex items-center flex-nowrap gap-2 sm:gap-2.5 shrink-0 overflow-x-auto">
+            {/* Tombol Biru Modern: TXT Ringan (.txt) */}
             <button
               type="button"
               onClick={downloadDotMatrixTxt}
               disabled={aggregatedItems.length === 0}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer border whitespace-nowrap shrink-0 shadow-sm ${
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 sm:gap-2 transition cursor-pointer border whitespace-nowrap shrink-0 shadow-sm ${
                 isLight
                   ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600 disabled:opacity-50'
-                  : 'bg-blue-600 hover:bg-blue-500 text-white font-bold border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.35)] disabled:opacity-50'
+                  : 'bg-blue-600 hover:bg-blue-500 text-white font-medium border-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.35)] disabled:opacity-50'
               }`}
+              title="Unduh format TXT dot-matrix ringan"
             >
-              <FileText className="w-4 h-4 shrink-0" />
-              <span>Unduh TXT Ringan (.txt)</span>
+              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="whitespace-nowrap shrink-0">TXT Ringan (.txt)</span>
             </button>
 
+            {/* Tombol Hijau: Excel (.xlsx) */}
             <button
               type="button"
               onClick={exportToExcel}
               disabled={aggregatedItems.length === 0}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer border whitespace-nowrap shrink-0 shadow-sm ${
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 sm:gap-2 transition cursor-pointer border whitespace-nowrap shrink-0 shadow-sm ${
                 isLight
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 disabled:opacity-50'
-                  : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)] disabled:opacity-50'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold border-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.3)] disabled:opacity-50'
               }`}
+              title="Unduh format spreadsheet Excel"
             >
-              <FileSpreadsheet className="w-4 h-4 shrink-0" />
-              <span>Unduh Excel (.xlsx)</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="whitespace-nowrap shrink-0">Excel (.xlsx)</span>
             </button>
 
+            {/* Tombol Cetak Rekap */}
             <button
               type="button"
               onClick={handlePrint}
               disabled={aggregatedItems.length === 0}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer border whitespace-nowrap shrink-0 shadow-sm ${
+              className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 sm:gap-2 transition cursor-pointer border whitespace-nowrap shrink-0 shadow-sm ${
                 isLight
                   ? 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300 disabled:opacity-50'
                   : 'bg-[#21262d] hover:bg-[#30363d] text-slate-200 border-[#30363d] disabled:opacity-50'
               }`}
+              title="Cetak Rekapitulasi Kasir"
             >
-              <Printer className="w-4 h-4 shrink-0" />
-              <span>Cetak Rekapitulasi</span>
+              <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+              <span className="whitespace-nowrap shrink-0">Cetak Rekap</span>
             </button>
           </div>
         </div>
