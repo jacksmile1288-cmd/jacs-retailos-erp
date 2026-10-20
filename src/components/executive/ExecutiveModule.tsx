@@ -4,6 +4,9 @@ import { getReactiveNeonGlowStyle } from '../../utils/neonGlow';
 import { StockPolicyTab } from './StockPolicyTab';
 import { PromotionsTab } from './PromotionsTab';
 import { POApprovalTab } from './POApprovalTab';
+import { ProductTrendIntelligence } from './ProductTrendIntelligence';
+import { CashierSalesAuditView } from './CashierSalesAuditView';
+import { UrgentActionBanner } from './UrgentActionBanner';
 import {
   TrendingUp,
   Percent,
@@ -23,6 +26,7 @@ import {
   Building2,
   Sparkles,
   ArrowRight,
+  Receipt,
 } from 'lucide-react';
 
 export const ExecutiveModule: React.FC = () => {
@@ -50,7 +54,7 @@ export const ExecutiveModule: React.FC = () => {
     showToast,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'po-approval' | 'stock-policy' | 'promotions'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'product-trend' | 'cashier-sales' | 'promotions' | 'po-approval' | 'stock-policy'>('overview');
   const [poNotesMap, setPoNotesMap] = useState<Record<string, string>>({});
   const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const isLight = theme === 'light';
@@ -299,13 +303,21 @@ export const ExecutiveModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Sub-Navigation Tabs */}
-      <div className="flex flex-wrap items-center gap-2 pb-1 border-b border-slate-700/30">
+      {/* Urgent Operational Blocking Queue Detector Banner */}
+      <UrgentActionBanner
+        isLight={isLight}
+        isEn={isEn}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+      />
+
+      {/* Sub-Navigation Tabs - Flat 1 Baris Horizontal Sejajar */}
+      <div className="flex items-center gap-2 pb-2 border-b border-slate-700/30 overflow-x-auto no-scrollbar flex-nowrap w-full">
+        {/* 1. Financial Overview & KPIs */}
         <button
           id="btn-tab-exec-overview"
           type="button"
           onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+          className={`shrink-0 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
             activeTab === 'overview'
               ? isLight
                 ? 'bg-white border border-slate-200 text-emerald-700 shadow-sm'
@@ -316,14 +328,82 @@ export const ExecutiveModule: React.FC = () => {
           }`}
         >
           <BarChart3 className="w-4 h-4" />
-          <span>{isEn ? 'Financial Overview & KPIs' : 'Ringkasan Finansial & KPI'}</span>
+          <span>{isEn ? 'Financial Overview & KPIs' : 'Financial Overview & KPIs'}</span>
         </button>
 
+        {/* 2. Product Trend & Sales Intelligence */}
+        <button
+          id="btn-tab-exec-product-trend"
+          type="button"
+          onClick={() => setActiveTab('product-trend')}
+          className={`shrink-0 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            activeTab === 'product-trend'
+              ? isLight
+                ? 'bg-white border border-slate-200 text-cyan-700 shadow-sm'
+                : 'bg-cyan-500 text-slate-950 font-black shadow-[0_0_15px_rgba(6,182,212,0.35)]'
+              : isLight
+              ? 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent'
+              : 'bg-[#161b22] border border-[#30363d] text-slate-300 hover:text-white'
+          }`}
+        >
+          <TrendingUp className="w-4 h-4" />
+          <span>{isEn ? 'Product Trend & Sales Intelligence' : 'Product Trend & Sales Intelligence'}</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold border ${
+            isLight ? 'bg-cyan-100 text-cyan-800 border-cyan-200' : 'bg-cyan-950 text-cyan-300 border-cyan-500/40'
+          }`}>
+            AI Engine
+          </span>
+        </button>
+
+        {/* 3. Laporan Penjualan Kasir */}
+        <button
+          id="btn-tab-exec-cashier-sales"
+          type="button"
+          onClick={() => setActiveTab('cashier-sales')}
+          className={`shrink-0 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            activeTab === 'cashier-sales'
+              ? isLight
+                ? 'bg-white border border-slate-200 text-emerald-700 shadow-sm'
+                : 'bg-emerald-500 text-slate-950 font-black shadow-[0_0_15px_rgba(16,185,129,0.35)]'
+              : isLight
+              ? 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent'
+              : 'bg-[#161b22] border border-[#30363d] text-slate-300 hover:text-white'
+          }`}
+        >
+          <Receipt className="w-4 h-4" />
+          <span>{isEn ? 'Cashier Sales Audit' : 'Laporan Penjualan Kasir'}</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-mono font-bold border ${
+            isLight ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-emerald-950 text-emerald-300 border-emerald-500/40'
+          }`}>
+            POS Audit
+          </span>
+        </button>
+
+        {/* 4. Promos & Packages Authorization */}
+        <button
+          id="btn-tab-exec-promotions"
+          type="button"
+          onClick={() => setActiveTab('promotions')}
+          className={`shrink-0 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            activeTab === 'promotions'
+              ? isLight
+                ? 'bg-white border border-slate-200 text-purple-700 shadow-sm'
+                : 'bg-purple-400 text-slate-950 shadow-[0_0_15px_rgba(168,85,247,0.35)]'
+              : isLight
+              ? 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent'
+              : 'bg-[#161b22] border border-[#30363d] text-slate-300 hover:text-white'
+          }`}
+        >
+          <Gift className="w-4 h-4" />
+          <span>{isEn ? 'Promos & Packages Authorization' : 'Promos & Packages Authorization'}</span>
+        </button>
+
+        {/* 5. High-Value PO Approval */}
         <button
           id="btn-tab-exec-po-approval"
           type="button"
           onClick={() => setActiveTab('po-approval')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+          className={`shrink-0 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
             activeTab === 'po-approval'
               ? isLight
                 ? 'bg-white border border-slate-200 text-rose-700 shadow-sm'
@@ -334,7 +414,7 @@ export const ExecutiveModule: React.FC = () => {
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
-          <span>{isEn ? 'High-Value PO Approval (> 20M)' : 'Otorisasi PO Direksi (> 20 Jt)'}</span>
+          <span>{isEn ? 'High-Value PO Approval (> 20M)' : 'High-Value PO Approval'}</span>
           {highValuePendingPOs.length > 0 && (
             <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold border animate-pulse ${
               isLight
@@ -346,11 +426,12 @@ export const ExecutiveModule: React.FC = () => {
           )}
         </button>
 
+        {/* 6. Stock Policy */}
         <button
           id="btn-tab-exec-stock-policy"
           type="button"
           onClick={() => setActiveTab('stock-policy')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+          className={`shrink-0 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
             activeTab === 'stock-policy'
               ? isLight
                 ? 'bg-white border border-slate-200 text-amber-700 shadow-sm'
@@ -361,33 +442,19 @@ export const ExecutiveModule: React.FC = () => {
           }`}
         >
           <ShieldAlert className="w-4 h-4" />
-          <span>{isEn ? 'Stock Policy & Alert Thresholds (%)' : 'Kebijakan Stok & Alert Persentase'}</span>
-        </button>
-
-        <button
-          id="btn-tab-exec-promotions"
-          type="button"
-          onClick={() => setActiveTab('promotions')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
-            activeTab === 'promotions'
-              ? isLight
-                ? 'bg-white border border-slate-200 text-purple-700 shadow-sm'
-                : 'bg-purple-400 text-slate-950 shadow-[0_0_15px_rgba(168,85,247,0.35)]'
-              : isLight
-              ? 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent'
-              : 'bg-[#161b22] border border-[#30363d] text-slate-300 hover:text-white'
-          }`}
-        >
-          <Gift className="w-4 h-4" />
-          <span>{isEn ? 'Promos & Packages Authorization' : 'Otorisasi Promo, Diskon & Bundling'}</span>
+          <span>{isEn ? 'Stock Policy' : 'Stock Policy'}</span>
         </button>
       </div>
+
+      {activeTab === 'product-trend' && <ProductTrendIntelligence isLight={isLight} isEn={isEn} />}
+
+      {activeTab === 'cashier-sales' && <CashierSalesAuditView isLight={isLight} isEn={isEn} />}
+
+      {activeTab === 'promotions' && <PromotionsTab isLight={isLight} isEn={isEn} />}
 
       {activeTab === 'po-approval' && <POApprovalTab isLight={isLight} isEn={isEn} />}
 
       {activeTab === 'stock-policy' && <StockPolicyTab isLight={isLight} isEn={isEn} />}
-
-      {activeTab === 'promotions' && <PromotionsTab isLight={isLight} isEn={isEn} />}
 
       {activeTab === 'overview' && (
         <>
