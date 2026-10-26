@@ -539,7 +539,7 @@ export const DashboardModule: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Revenue (POS) */}
         <div
-          className={`relative overflow-hidden rounded-2xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
+          className={`min-w-0 relative overflow-hidden rounded-2xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
             isLight
               ? 'bg-white border-slate-200 shadow-sm hover:border-[#00f2fe]/60'
               : 'bg-[#161b22] border-[#30363d] hover:border-[#00f2fe]/60'
@@ -561,8 +561,9 @@ export const DashboardModule: React.FC = () => {
 
           <div className="mt-3 space-y-1">
             <div
-              className="text-2xl font-black font-mono tracking-tight"
+              className="text-lg xl:text-xl font-bold font-mono tracking-tight truncate"
               style={{ color: isLight ? '#0F172A' : '#00f2fe' }}
+              title={`Rp ${currentTotalRevenue.toLocaleString('id-ID')}`}
             >
               Rp {currentTotalRevenue.toLocaleString('id-ID')}
             </div>
@@ -604,7 +605,7 @@ export const DashboardModule: React.FC = () => {
 
         {/* Card 2: Net Profit & Cash Flow (Finance) */}
         <div
-          className={`relative overflow-hidden rounded-2xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
+          className={`min-w-0 relative overflow-hidden rounded-2xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
             isLight
               ? 'bg-white border-slate-200 shadow-sm hover:border-[#10B981]/60'
               : 'bg-[#161b22] border-[#30363d] hover:border-[#10B981]/60'
@@ -626,18 +627,19 @@ export const DashboardModule: React.FC = () => {
 
           <div className="mt-3 space-y-1">
             <div
-              className="text-2xl font-black font-mono tracking-tight"
+              className="text-lg xl:text-xl font-bold font-mono tracking-tight truncate"
               style={{ color: isLight ? '#0F172A' : '#10B981' }}
+              title={`Rp ${currentNetProfit.toLocaleString('id-ID')}`}
             >
               Rp {currentNetProfit.toLocaleString('id-ID')}
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-[11px] font-semibold text-emerald-400">
+            <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
+              <span className="text-[11px] font-semibold text-emerald-400 whitespace-nowrap">
                 {currentMargin}% Margin Bersih
               </span>
-              <span className="text-[10px] text-slate-400 font-mono">
-                {t.cashRatioLabel.slice(0, 14)}: {cashFlowRatio}%
+              <span className="text-[10px] text-slate-400 font-mono whitespace-nowrap">
+                Cash Inflow: {cashFlowRatio}%
               </span>
             </div>
 
@@ -655,7 +657,7 @@ export const DashboardModule: React.FC = () => {
 
         {/* Card 3: Stock Assets & Turnover (Warehouse) */}
         <div
-          className={`relative overflow-hidden rounded-2xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
+          className={`min-w-0 relative overflow-hidden rounded-2xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
             isLight
               ? 'bg-white border-slate-200 shadow-sm hover:border-[#8b5cf6]/60'
               : 'bg-[#161b22] border-[#30363d] hover:border-[#8b5cf6]/60'
@@ -677,8 +679,9 @@ export const DashboardModule: React.FC = () => {
 
           <div className="mt-3 space-y-1">
             <div
-              className="text-2xl font-black font-mono tracking-tight"
+              className="text-base lg:text-[15px] xl:text-lg font-bold font-mono tracking-tight truncate"
               style={{ color: isLight ? '#0F172A' : '#a78bfa' }}
+              title={`Rp ${totalStockValue.toLocaleString('id-ID')}`}
             >
               Rp {totalStockValue.toLocaleString('id-ID')}
             </div>
@@ -719,7 +722,7 @@ export const DashboardModule: React.FC = () => {
 
         {/* Card 4: Workforce & Attendance (HR) */}
         <div
-          className={`relative overflow-hidden rounded-2xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
+          className={`min-w-0 relative overflow-hidden rounded-2xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
             isLight
               ? 'bg-white border-slate-200 shadow-sm hover:border-[#06b6d4]/60'
               : 'bg-[#161b22] border-[#30363d] hover:border-[#06b6d4]/60'
@@ -741,7 +744,7 @@ export const DashboardModule: React.FC = () => {
 
           <div className="mt-3 space-y-1">
             <div
-              className="text-2xl font-black font-mono tracking-tight"
+              className="text-lg xl:text-xl font-bold font-mono tracking-tight truncate"
               style={{ color: isLight ? '#0F172A' : '#22d3ee' }}
             >
               {attendancePercent}%
@@ -1234,3 +1237,5 @@ export const DashboardModule: React.FC = () => {
     </div>
   );
 };
+
+export default DashboardModule;

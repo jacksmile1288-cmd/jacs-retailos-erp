@@ -1856,3 +1856,5 @@ export const HrModule: React.FC = () => {
     </div>
   );
 };
+
+export default HrModule;

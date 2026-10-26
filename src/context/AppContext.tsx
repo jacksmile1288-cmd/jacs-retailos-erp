@@ -320,6 +320,11 @@ interface AppContextType {
   isCashierWorkspaceActive: boolean;
   setIsCashierWorkspaceActive: (active: boolean) => void;
 
+  // Global Sidebar Toggle State (Layar Penuh / Full-Width Workspace)
+  isSidebarCollapsed: boolean;
+  setIsSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+  toggleSidebar: () => void;
+
   // Offline-First POS Engine & Network State
   isOnline: boolean;
   setIsOnline: React.Dispatch<React.SetStateAction<boolean>>;
@@ -1400,6 +1405,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Fullscreen POS Cashier Workspace state (auto-collapse sidebar)
   const [isCashierWorkspaceActive, setIsCashierWorkspaceActive] = useState<boolean>(false);
 
+  // Global Sidebar Toggle State (localStorage 'jacs_sidebar_collapsed')
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('jacs_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('jacs_sidebar_collapsed', String(next));
+      } catch (e) {
+        console.error('Error saving sidebar collapsed state:', e);
+      }
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('jacs_sidebar_collapsed', String(isSidebarCollapsed));
+    } catch (e) {
+      console.error('Error saving sidebar collapsed state:', e);
+    }
+  }, [isSidebarCollapsed]);
+
   // Receipt modal
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [currentReceiptSale, setCurrentReceiptSale] = useState<Sale | null>(null);
@@ -1496,10 +1530,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {}
   };
 
-  // Browser online & offline listeners
+  // Browser online & offline listeners with heartbeat ping
   useEffect(() => {
+    const checkHeartbeat = async () => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setIsOnline(false);
+        return;
+      }
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
+        await fetch(`/?heartbeat=${Date.now()}`, {
+          method: 'HEAD',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        setIsOnline(true);
+      } catch {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          setIsOnline(false);
+        } else {
+          setIsOnline(true);
+        }
+      }
+    };
+
     const handleOnline = () => {
       setIsOnline(true);
+      checkHeartbeat();
       // Ketika event window 'online' terpicu, jalankan fungsi syncOfflineTransactions() secara otomatis di latar belakang
       try {
         const raw = localStorage.getItem('jacs_offline_queue');
@@ -1524,9 +1583,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Initial heartbeat probe
+    checkHeartbeat();
+
+    // Periodic heartbeat every 30 seconds
+    const heartbeatInterval = setInterval(checkHeartbeat, 30000);
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearInterval(heartbeatInterval);
     };
   }, []);
 
@@ -8368,6 +8434,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showToast,
         isCashierWorkspaceActive,
         setIsCashierWorkspaceActive,
+        isSidebarCollapsed,
+        setIsSidebarCollapsed,
+        toggleSidebar,
         // Offline-First POS Engine & Network State
         isOnline,
         setIsOnline,

@@ -9,22 +9,33 @@ export interface JacSLogoProps {
   imgOnly?: boolean;
 }
 
-export const JacSLogo: React.FC<JacSLogoProps> = () => {
+export const JacSLogo: React.FC<JacSLogoProps> = ({ imgOnly, className }) => {
+  const [imgError, setImgError] = React.useState(false);
+
+  const imageElement = (
+    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden bg-[#0d1117]/80 border border-[#30363d]/60 p-1 shadow-md ${className || ''}`}>
+      {!imgError ? (
+        <img
+          src="/Logo-JacS-Enterprise.png"
+          alt="JacS Enterprise Logo"
+          className="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(0,82,255,0.4)]"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div className="w-full h-full rounded-lg bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 flex items-center justify-center text-white font-black text-lg select-none shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)]">
+          J
+        </div>
+      )}
+    </div>
+  );
+
+  if (imgOnly) {
+    return imageElement;
+  }
+
   return (
     <div className="flex items-center gap-3">
-      <img
-        src="/jacs-logo.png"
-        alt="JacS Logo"
-        className="w-10 h-10 object-contain shrink-0"
-        onError={(e) => {
-          // Fallback jika path public berbeda
-          const target = e.currentTarget;
-          if (!target.dataset.tried) {
-            target.dataset.tried = 'true';
-            target.src = '/Logo JacS ENterprise.png';
-          }
-        }}
-      />
+      {imageElement}
       <div className="flex flex-col min-w-0">
         <div className="flex items-center gap-1.5 whitespace-nowrap">
           <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white">

@@ -7,7 +7,7 @@ interface KotTicketModalProps {
   onClose: () => void;
   cart: CartItem[];
   terminal: Terminal;
-  user: User;
+  user?: User | null;
   onSentToKitchen: () => void;
 }
 
@@ -82,7 +82,7 @@ export const KotTicketModal: React.FC<KotTicketModalProps> = ({
             <div className="text-[10px] text-gray-600">
               {dateStr} - {timeStr} | {terminal.name}
             </div>
-            <div className="text-[10px] text-gray-600">Server: {user.name}</div>
+            <div className="text-[10px] text-gray-600">Server: {user?.name || 'Kasir'}</div>
           </div>
 
           {/* Items to Cook */}

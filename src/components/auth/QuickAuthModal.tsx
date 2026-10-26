@@ -8,8 +8,10 @@ export interface QuickAuthModalProps {
   onClose: () => void;
   onSuccess?: (user?: User) => void;
   moduleTitle?: string;
+  targetModule?: string;
   title?: string;
   subtitle?: string;
+  requireMasterPassword?: boolean;
 }
 
 export const QuickAuthModal: React.FC<QuickAuthModalProps> = ({
@@ -17,8 +19,10 @@ export const QuickAuthModal: React.FC<QuickAuthModalProps> = ({
   onClose,
   onSuccess,
   moduleTitle,
+  targetModule,
   title,
   subtitle,
+  requireMasterPassword = false,
 }) => {
   const {
     developerPassword,
@@ -29,6 +33,8 @@ export const QuickAuthModal: React.FC<QuickAuthModalProps> = ({
     addAuditLog,
     showToast,
     theme,
+    verifyModulePassword,
+    unlockModule,
   } = useApp();
 
   const [inputCode, setInputCode] = useState('');
@@ -39,6 +45,12 @@ export const QuickAuthModal: React.FC<QuickAuthModalProps> = ({
 
   const isLight = theme === 'light';
   const displayTitle = moduleTitle || title || 'Otorisasi Akses Modul';
+
+  const defaultSubtitle = (() => {
+    const t = (targetModule || '').toLowerCase();
+    if (t === 'admin' || requireMasterPassword) return 'Masukkan PIN (1234) atau Sandi Master (Admin123)';
+    return 'Masukkan PIN Modul (Default: 1234)';
+  })();
 
   // Auto-focus and reset state when opened
   useEffect(() => {
@@ -66,61 +78,48 @@ export const QuickAuthModal: React.FC<QuickAuthModalProps> = ({
     const trimmed = inputCode.trim();
 
     if (!trimmed) {
-      setErrorMessage('Masukkan sandi atau PIN');
+      setErrorMessage('Masukkan sandi atau PIN modul');
       triggerShake();
       return;
     }
 
-    // 1. Logika Autentikasi Super Admin / Developer Password
-    const isDevPass = trimmed === developerPassword || trimmed === 'Admin123';
-    if (isDevPass) {
-      setIsSuperAdminAuthenticated(true);
-      // Alihkan activeUser ke Super Admin
-      const superAdminUser =
-        users.find((u) => u.role === 'Super Admin' && u.status === 'Active') ||
-        users.find((u) => u.role === 'Super Admin') || {
-          user_id: 'USR-001',
-          name: 'Super Admin',
-          email: 'admin@jacs-erp.com',
-          role: 'Super Admin' as const,
-          status: 'Active' as const,
-          pin: '8888',
-        };
-      setActiveUser(superAdminUser);
+    const target = targetModule || (requireMasterPassword ? 'admin' : '');
+    if (target) {
+      const res = verifyModulePassword(target, trimmed);
+      if (res.success) {
+        unlockModule(target);
+        if (res.user) {
+          setActiveUser(res.user);
+        }
+        addAuditLog(
+          `Otorisasi berhasil untuk modul: ${displayTitle}`,
+          'Authentication',
+          'INFO'
+        );
+        showToast(`Otorisasi Berhasil: ${displayTitle}`);
 
-      addAuditLog(
-        `Otorisasi Super Admin berhasil untuk modul: ${displayTitle}`,
-        'Authentication',
-        'INFO'
-      );
-      showToast('Otorisasi Super Admin Berhasil!');
-
-      if (onSuccess) {
-        onSuccess(superAdminUser);
+        if (onSuccess) {
+          onSuccess(res.user);
+        }
+        handleClose();
+        return;
       }
-      handleClose();
+
+      setErrorMessage(res.error || 'Sandi atau PIN modul tidak cocok!');
+      triggerShake();
       return;
     }
 
-    // 2. Logika Autentikasi Staff PIN
+    // Fallback umum jika target modul tidak dispesifikasikan
     const pinResult = verifyPin(trimmed);
     if (pinResult.success && pinResult.user) {
-      addAuditLog(
-        `Otorisasi berhasil via PIN (${pinResult.user.name}) untuk modul: ${displayTitle}`,
-        'Authentication',
-        'INFO'
-      );
-      showToast(`Otorisasi Berhasil: ${pinResult.user.name}`);
-
-      if (onSuccess) {
-        onSuccess(pinResult.user);
-      }
+      setActiveUser(pinResult.user);
+      if (onSuccess) onSuccess(pinResult.user);
       handleClose();
       return;
     }
 
-    // 3. Autentikasi Gagal
-    setErrorMessage('Sandi atau PIN salah!');
+    setErrorMessage('Sandi master atau PIN divisi tidak cocok!');
     triggerShake();
   };
 
@@ -170,7 +169,7 @@ export const QuickAuthModal: React.FC<QuickAuthModalProps> = ({
               {displayTitle}
             </h3>
             <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-              {subtitle || 'Masukkan Sandi Pengembang atau PIN Staff'}
+              {subtitle || defaultSubtitle}
             </p>
           </div>
         </div>

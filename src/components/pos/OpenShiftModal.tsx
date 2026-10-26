@@ -30,7 +30,7 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
   onSuccess,
   isLight = false,
 }) => {
-  const { activeUser, activeTerminal, openCashierShift, showToast } = useApp();
+  const { activeUser, activeTerminal, openCashierShift, showToast, openPinAuth } = useApp();
   const [initialCash, setInitialCash] = useState<number>(200000);
   const [notes, setNotes] = useState<string>('Modal awal kasir operasional reguler');
   const [error, setError] = useState<string | null>(null);
@@ -125,9 +125,20 @@ export const OpenShiftModal: React.FC<OpenShiftModalProps> = ({
             </div>
             <div className="truncate">
               <span className="text-[10px] text-gray-400 block font-medium">Operator Kasir</span>
-              <span className="font-bold truncate text-slate-900 dark:text-white block">
-                {activeUser.name}
-              </span>
+              {activeUser ? (
+                <span className="font-bold truncate text-slate-900 dark:text-white block">
+                  {activeUser.name}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openPinAuth()}
+                  className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 underline block cursor-pointer truncate"
+                  title="Klik untuk autentikasi PIN kasir"
+                >
+                  Otorisasi PIN Kasir →
+                </button>
+              )}
             </div>
           </div>
 

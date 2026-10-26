@@ -483,7 +483,7 @@ export const FinancialReportsTab: React.FC<FinancialReportsTabProps> = ({ isLigh
                     {businessProfile?.category || 'ENTITAS BISNIS RESMI'}
                   </span>
                   <h2 className="text-lg font-black tracking-tight text-slate-900 dark:text-white uppercase">
-                    {businessProfile?.name || 'KHANSA SWALAYAN'}
+                    {businessProfile?.name || 'JacS Retail & Enterprise Group'}
                   </h2>
                   {(hasValidProfileValue(businessProfile?.address) || hasValidProfileValue(businessProfile?.phone) || hasValidProfileValue(businessProfile?.email)) && (
                     <p className="text-xs text-slate-500 dark:text-gray-400">
@@ -791,7 +791,7 @@ export const FinancialReportsTab: React.FC<FinancialReportsTabProps> = ({ isLigh
                     {businessProfile?.category || 'ENTITAS BISNIS RESMI'}
                   </span>
                   <h2 className="text-lg font-black tracking-tight text-slate-900 dark:text-white uppercase">
-                    {businessProfile?.name || 'KHANSA SWALAYAN'}
+                    {businessProfile?.name || 'JacS Retail & Enterprise Group'}
                   </h2>
                   {(hasValidProfileValue(businessProfile?.address) || hasValidProfileValue(businessProfile?.phone) || hasValidProfileValue(businessProfile?.email)) && (
                     <p className="text-xs text-slate-500 dark:text-gray-400">

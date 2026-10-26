@@ -1228,3 +1228,5 @@ export const WarehouseModule: React.FC = () => {
     </div>
   );
 };
+
+export default WarehouseModule;

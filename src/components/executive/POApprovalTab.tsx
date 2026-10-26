@@ -47,10 +47,11 @@ export const POApprovalTab: React.FC<POApprovalTabProps> = ({
   const handleApproveAllQueue = () => {
     if (pendingHighValuePOs.length === 0) return;
     const count = pendingHighValuePOs.length;
+    const approver = activeUser ? `${activeUser.name} (${activeUser.role})` : 'Executive Approver';
     pendingHighValuePOs.forEach((po) => {
       const note =
         poNotesMap[po.po_number] ||
-        `Disetujui batch oleh ${activeUser.name} (${activeUser.role}) untuk pengadaan barang operasional Q4.`;
+        `Disetujui batch oleh ${approver} untuk pengadaan barang operasional Q4.`;
       approvePurchaseOrder(po.po_number, note);
     });
     showToast(
@@ -132,9 +133,10 @@ export const POApprovalTab: React.FC<POApprovalTabProps> = ({
 
   const handleApprove = async (poNumber: string) => {
     setProcessingPo(poNumber);
+    const approver = activeUser ? `${activeUser.name} (${activeUser.role})` : 'Executive Approver';
     const note =
       poNotesMap[poNumber] ||
-      `Disetujui oleh ${activeUser.name} (${activeUser.role}) untuk pengadaan barang operasional/stok Q4.`;
+      `Disetujui oleh ${approver} untuk pengadaan barang operasional/stok Q4.`;
     try {
       approvePurchaseOrder(poNumber, note);
     } finally {
@@ -144,9 +146,10 @@ export const POApprovalTab: React.FC<POApprovalTabProps> = ({
 
   const handleReject = async (poNumber: string) => {
     setProcessingPo(poNumber);
+    const approver = activeUser ? `${activeUser.name} (${activeUser.role})` : 'Executive Approver';
     const reason =
       poNotesMap[poNumber] ||
-      `Ditolak oleh ${activeUser.name} (${activeUser.role}): evaluasi anggaran ulang diperlukan.`;
+      `Ditolak oleh ${approver}: evaluasi anggaran ulang diperlukan.`;
     try {
       rejectPurchaseOrder(poNumber, reason);
     } finally {
