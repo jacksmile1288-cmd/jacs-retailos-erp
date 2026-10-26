@@ -138,7 +138,7 @@ export function parseExcelBuffer(
 
   // Prioritaskan sheet dengan nama yang relevan dengan master produk/barang
   let activeSheet = sheetNames[0];
-  const priorityMatch = sheetNames.find((s) => {
+  const priorityMatch = sheetNames.find((s: any) => {
     const lower = s.toLowerCase();
     return (
       lower.includes('barang') ||
