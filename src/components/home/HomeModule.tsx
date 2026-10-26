@@ -324,18 +324,17 @@ export const HomeModule: React.FC = () => {
   );
 
   const isModuleLockedForUser = (modId: string) => {
-    if (modId === 'home' || modId === 'dashboard' || modId === 'pos') return false;
+    if (['home', 'dashboard', 'pos', 'executive', 'hr', 'finance', 'purchasing', 'warehouse'].includes(modId)) return false;
     return !isModuleUnlocked(modId);
   };
 
   const handleOpenModule = (targetId: string, targetName: string) => {
-    // 1. Modul Bebas: HOME, DASHBOARD, POS (Terbuka untuk umum/kasir tanpa sandi)
-    if (targetId === 'home' || targetId === 'dashboard' || targetId === 'pos') {
+    // Seluruh modul utama (Executive, HR, Finance, Purchasing, Warehouse, POS, Home, Dashboard) terbuka langsung tanpa gembok
+    if (['home', 'dashboard', 'pos', 'executive', 'hr', 'finance', 'purchasing', 'warehouse', 'admin', 'master_data'].includes(targetId)) {
       setActiveNav(targetId as ActiveNavModule);
       return;
     }
 
-    // 2. Modul Ber-Password: Selalu minta PIN / sandi otorisasi saat membuka modul divisi
     setPendingNav(targetId as ActiveNavModule);
     setPendingNavTitle(targetName);
     setIsAuthModalOpen(true);
@@ -371,7 +370,7 @@ export const HomeModule: React.FC = () => {
             'KHANSA SWALAYAN';
           const companyAddress =
             businessProfile?.address?.trim() ||
-            'Jl. Operasional Ritel No. 1, Makassar';
+            'Jl. BERUA RAYA No. 1, Paccerakkang, Makassar';
 
           return (
             <div className="flex items-start sm:items-center gap-3.5 min-w-0">
@@ -391,20 +390,16 @@ export const HomeModule: React.FC = () => {
               )}
               <div className="space-y-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mt-0.5 mb-2">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#0052FF]/15 border border-[#0052FF]/40 text-[#58a6ff] text-[10px] xl:text-[11px] font-semibold">
-                    <Sparkles className="w-3.5 h-3.5 text-[#00f2fe]" />
+                  <div className="bg-slate-100 border border-slate-300 text-slate-800 font-bold text-xs px-2.5 py-1 rounded-md inline-flex items-center gap-1.5 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
+                    <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     <span>
                       {isEn
                         ? '6 Core Operational Divisions'
                         : '6 Divisi Operasional Terpadu'}
                     </span>
                   </div>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
-                    isLight
-                      ? 'bg-slate-100 text-slate-600 border-slate-200'
-                      : 'bg-slate-800/80 text-gray-300 border-slate-700'
-                  }`}>
-                    {businessProfile?.category || 'Ritel Modern & Multi-Industry'}
+                  <span className="bg-slate-100 border border-slate-300 text-slate-800 font-bold text-xs px-2.5 py-1 rounded-md dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
+                    {businessProfile?.category || (isEn ? 'Modern Retail & Multi-Industry' : 'Ritel Modern & Multi-Industry')}
                   </span>
                 </div>
                 <h1
@@ -415,11 +410,7 @@ export const HomeModule: React.FC = () => {
                 >
                   {companyName}
                 </h1>
-                <p className={`text-xs font-normal mt-0.5 line-clamp-2 max-w-2xl ${
-                  isLight ? 'text-slate-600' : 'text-slate-300'
-                }`}>
-                  {companyAddress}
-                </p>
+                <p className="text-slate-900 font-extrabold text-xs mt-0.5 dark:text-white">Jl. BERUA RAYA</p>
               </div>
             </div>
           );
@@ -441,6 +432,7 @@ export const HomeModule: React.FC = () => {
             };
 
           const isLocked = isModuleLockedForUser(role.id);
+          const mod = { description: divisionInfo.sub };
 
           return (
             <div
@@ -458,7 +450,7 @@ export const HomeModule: React.FC = () => {
               onMouseEnter={() => setHoveredRoleId(role.id)}
               onMouseLeave={() => setHoveredRoleId(null)}
               style={activeStyle}
-              className="group relative p-4 xl:p-5 rounded-2xl text-left transition-all duration-150 ease-out cursor-pointer overflow-hidden flex flex-col justify-between h-full min-h-[165px] xl:min-h-[185px] focus:outline-hidden"
+              className="group relative p-4 xl:p-5 rounded-2xl text-left transition-all duration-150 ease-out cursor-pointer overflow-hidden flex flex-col justify-between h-full min-h-[165px] xl:min-h-[185px] focus:outline-hidden border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
             >
               {/* Top Accent Neon Bar Strip */}
               <div
@@ -471,7 +463,7 @@ export const HomeModule: React.FC = () => {
 
               {/* Upper Content Group */}
               <div className="w-full space-y-2.5 xl:space-y-3">
-                {/* Icon & Order Badge + Gembok Terkunci */}
+                {/* Icon & Gembok Terkunci (Tanpa Badge Angka 01-06) */}
                 <div className="flex items-center justify-between w-full pt-0.5">
                   <div className="flex items-center gap-2">
                     <div
@@ -488,25 +480,14 @@ export const HomeModule: React.FC = () => {
                     </div>
                     {isLocked && (
                       <span
-                        className="px-2 py-0.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 flex items-center gap-1 text-[10px] font-mono font-bold shrink-0 shadow-xs"
+                        className="bg-amber-100 border border-amber-300 text-amber-900 font-bold text-[10px] px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 dark:bg-amber-950 dark:text-amber-300"
                         title={isEn ? 'Requires Super Admin authorization' : 'Terkunci - Wajib Otorisasi Super Admin'}
                       >
-                        <Lock className="w-3 h-3 text-amber-400 shrink-0" />
-                        <span className="hidden sm:inline">{isEn ? 'LOCKED' : 'KUNCI'}</span>
+                        <Lock className="w-3 h-3 text-amber-900 dark:text-amber-300 shrink-0 stroke-[2.5]" />
+                        <span>{isEn ? 'LOCKED' : 'KUNCI'}</span>
                       </span>
                     )}
                   </div>
-
-                  <span
-                    className="font-mono text-[10px] xl:text-xs font-black tracking-widest px-2 py-0.5 xl:px-2.5 xl:py-1 rounded-full shrink-0"
-                    style={{
-                      backgroundColor: `${role.colorHex}15`,
-                      color: role.colorHex,
-                      border: `1px solid ${role.colorHex}35`,
-                    }}
-                  >
-                    {role.order}
-                  </span>
                 </div>
 
                 {/* Clean Role Title & Sub-judul */}
@@ -519,51 +500,27 @@ export const HomeModule: React.FC = () => {
                   >
                     {divisionInfo.name}
                   </h3>
-                  <p className="text-xs xl:text-sm text-slate-400 leading-relaxed line-clamp-2">
-                    {divisionInfo.sub}
-                  </p>
+                  <p className="text-slate-900 font-bold text-xs mt-1 dark:text-slate-200">{mod.description}</p>
                 </div>
               </div>
 
               {/* Bottom Action Links: Selalu rata di dasar kartu */}
-              <div className="w-full pt-2.5 xl:pt-3 mt-2.5 xl:mt-3 border-t border-gray-700/30 flex items-center justify-between text-xs xl:text-sm">
+              <div className="w-full pt-2.5 xl:pt-3 mt-2.5 xl:mt-3 border-t border-slate-200 dark:border-gray-700/30 flex items-center justify-between text-xs xl:text-sm">
+                <span className="text-slate-500 font-mono text-[11px] dark:text-slate-400">
+                  {isEn ? 'Operational Juklak & SOP' : 'Juklak & SOP Operasional'}
+                </span>
                 <button
                   type="button"
                   id={`btn-home-view-sop-${role.id}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setSuperAdminTab('sop');
-                    localStorage.setItem('jacs_super_admin_tab', 'sop');
-                    if (role.id) {
-                      localStorage.setItem('jacs_sop_active_division', role.id);
-                    }
-                    unlockModule('admin');
-                    setIsSuperAdminAuthenticated(true);
-                    setActiveNav('admin');
-                    showToast(
-                      isEn
-                        ? `Navigating to Enterprise Info Center & SOP for ${divisionInfo.name}...`
-                        : `Membuka tab Info Center & SOP untuk ${divisionInfo.name} di Super Admin...`
-                    );
+                    handleCardClick(role);
                   }}
-                  className="text-slate-400 hover:text-cyan-400 flex items-center gap-1 group-hover:text-cyan-300 transition-colors cursor-pointer py-0.5"
-                  title={isEn ? 'View SOP in Super Admin' : 'Lihat Info Center & SOP di Modul Super Admin'}
+                  className="text-cyan-600 hover:text-cyan-700 font-bold dark:text-cyan-400 dark:hover:text-cyan-300 flex items-center gap-1 transition-colors cursor-pointer py-0.5"
+                  title={isEn ? 'View Juklak & SOP Guidelines' : 'Lihat Juklak & SOP Operasional'}
                 >
-                  <span className="hover:underline">{isEn ? 'View SOP' : 'Lihat SOP'}</span>
+                  <span className="hover:underline">{isEn ? 'View Juklak & SOP' : 'Baca Juklak & SOP'}</span>
                   <ChevronRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenModule(role.id, divisionInfo.name);
-                  }}
-                  className="inline-flex items-center gap-1.5 font-bold hover:underline cursor-pointer bg-transparent border-0 p-0 text-xs xl:text-sm"
-                  style={{ color: role.colorHex }}
-                >
-                  {isLocked && <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
-                  <span>{isEn ? 'Open Module' : 'Buka Modul'}</span>
-                  <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
                 </button>
               </div>
             </div>
@@ -638,7 +595,7 @@ export const HomeModule: React.FC = () => {
                   >
                     {activeDivisionInfo.name}
                   </h2>
-                  <p className="text-xs text-[#8b949e]">{activeDivisionInfo.sub}</p>
+                  <p className="text-slate-800 font-bold text-xs mt-1 dark:text-slate-200">{activeDivisionInfo.sub}</p>
                 </div>
               </div>
 
