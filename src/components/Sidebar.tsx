@@ -58,7 +58,7 @@ const PROTECTED_MODULE_NAMES: Record<string, { id: string; en: string }> = {
   'warehouse': { id: 'Gudang & Inventori', en: 'Warehouse & Inventory' },
   'purchasing': { id: 'Pengadaan & Pembelian', en: 'Purchasing' },
   'admin': { id: 'Super Admin', en: 'Super Admin' },
-};
+}
 
 export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => void }> = ({
   isOpenMobile,
@@ -796,4 +796,4 @@ export const Sidebar: React.FC<{ isOpenMobile: boolean; onCloseMobile: () => voi
       />
     </>
   );
-};
+}
